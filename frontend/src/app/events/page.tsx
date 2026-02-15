@@ -10,7 +10,7 @@ export default function EventsPage() {
 
   useEffect(() => {
     fetchEvents({ limit: 20 })
-      .then(setEvents)
+      .then((res) => setEvents(res.events))
       .finally(() => setLoading(false));
   }, []);
 
@@ -19,7 +19,7 @@ export default function EventsPage() {
       await reserveEvent(eventId, 1);
       setMessage("رزرو با موفقیت انجام شد");
       const fresh = await fetchEvents({ limit: 20 });
-      setEvents(fresh);
+      setEvents(fresh.events);
     } catch {
       setMessage("رزرو انجام نشد (احراز هویت یا ظرفیت را بررسی کنید)");
     }

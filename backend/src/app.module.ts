@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { envValidationSchema } from './config/env.validation';
 import { typeOrmConfig } from './config/typeorm.config';
 import { AuthModule } from './modules/auth/auth.module';
+import { AdminEventsModule } from './modules/admin-events/admin-events.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { EventsModule } from './modules/events/events.module';
 import { HealthModule } from './modules/health/health.module';
@@ -31,6 +32,7 @@ import { WalletModule } from './modules/wallet/wallet.module';
     TypeOrmModule.forRootAsync(typeOrmConfig),
     LoggerModule,
     AuthModule,
+    AdminEventsModule,
     UsersModule,
     EventsModule,
     BookingsModule,

@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
@@ -6,6 +6,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { JwtAuthGuard } from '../common/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -16,7 +17,7 @@ export class AuthController {
   async register(@Body() body: RegisterDto, @Res({ passthrough: true }) res: Response) {
     const data = await this.authService.register(body);
     this.setAuthCookies(res, data.accessToken, data.refreshToken);
-    return { message: 'Registered successfully' };
+    return { message: 'Registered successfully', accessToken: data.accessToken, user: data.user };
   }
 
   @Post('login')
@@ -24,7 +25,7 @@ export class AuthController {
   async login(@Body() body: LoginDto, @Res({ passthrough: true }) res: Response) {
     const data = await this.authService.login(body);
     this.setAuthCookies(res, data.accessToken, data.refreshToken);
-    return { message: 'Login successful' };
+    return { message: 'Login successful', accessToken: data.accessToken, user: data.user };
   }
 
   @Post('request-otp')
@@ -38,7 +39,7 @@ export class AuthController {
   async verifyOtp(@Body() body: VerifyOtpDto, @Res({ passthrough: true }) res: Response) {
     const data = await this.authService.verifyOtp(body.mobileNumber, body.otp);
     this.setAuthCookies(res, data.accessToken, data.refreshToken);
-    return { message: 'OTP verification successful' };
+    return { message: 'OTP verification successful', accessToken: data.accessToken, user: data.user };
   }
 
   @Post('refresh')
@@ -52,7 +53,14 @@ export class AuthController {
 
     const data = this.authService.refreshToken(refreshToken || '');
     this.setAuthCookies(res, data.accessToken, data.refreshToken);
-    return { message: 'Token refreshed' };
+    return { message: 'Token refreshed', accessToken: data.accessToken, user: data.user };
+  }
+
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  me(@Req() req: { user: { sub: string; email?: string; mobileNumber?: string; role?: string } }) {
+    return { user: req.user };
   }
 
   @Post('logout')

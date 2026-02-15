@@ -1,31 +1,29 @@
 import axios, { AxiosError, AxiosHeaders } from 'axios';
 
+export type ApiUser = {
+  id: string;
+  email?: string;
+  mobileNumber?: string;
+  role: 'user' | 'admin';
+};
+
 export type ApiEvent = {
   id: string;
   title: string;
   description?: string;
   category?: string;
+  eventType?: string;
+  city?: string;
   tags?: string[];
+  targetPersonalityTraits?: string[];
   startDate: string;
+  endDate?: string;
   capacity: number;
   reservedCount: number;
   price: number;
+  isActive: boolean;
 };
 
-export type ReserveEventResponse = {
-  reservation: {
-    id: string;
-    eventId: string;
-    userId: string;
-    seats: number;
-    paymentStatus: 'pending' | 'paid' | 'failed';
-    paymentReference?: string;
-    paidAt?: string;
-    createdAt: string;
-  };
-  remaining: number;
-  telegramInviteLink: string;
-};
 
 export type NotificationItem = {
   id: string;
@@ -44,6 +42,20 @@ export type UserProfile = {
   age: number | null;
   gender: string | null;
   education: string | null;
+};
+
+export type ReserveEventResponse = {
+  reservation: {
+    id: string;
+    eventId: string;
+    userId: string;
+    seats: number;
+    paymentStatus: 'pending' | 'paid' | 'failed';
+    paymentReference?: string;
+    paidAt?: string;
+    createdAt: string;
+  };
+  remaining: number;
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
@@ -126,17 +138,18 @@ api.interceptors.response.use(
     }
 
     throw normalizeError(error);
-  }
+  },
 );
 
 export async function login(email: string, password: string) {
-  const { data } = await api.post<{ accessToken: string; user: { email: string; subscriptionPlan: string } }>('/auth/login', {
-    email,
-    password,
-  });
-
+  const { data } = await api.post<{ accessToken: string; user: ApiUser }>('/auth/login', { email, password });
   setAccessToken(data.accessToken);
   return data;
+}
+
+export async function getCurrentUser() {
+  const { data } = await api.get<{ user: ApiUser }>('/auth/me');
+  return data.user;
 }
 
 export async function refreshAccessToken() {
@@ -151,15 +164,26 @@ export async function refreshAccessToken() {
   }
 }
 
-export async function fetchEvents(params?: { category?: string; limit?: number }) {
+export async function fetchEvents(params?: { category?: string; limit?: number; city?: string; date?: string; price?: 'free' | 'paid'; page?: number }) {
   const { data } = await api.get<{ count: number; events: ApiEvent[] }>('/events', { params });
-  return data.events;
+  return data;
+}
+
+export async function fetchEventById(id: string) {
+  const { data } = await api.get<ApiEvent>(`/events/${id}`);
+  return data;
+}
+
+export async function createAdminEvent(payload: Omit<ApiEvent, 'id' | 'reservedCount'>) {
+  const { data } = await api.post<ApiEvent>('/admin/events', payload);
+  return data;
 }
 
 export async function reserveEvent(eventId: string, seats = 1, paymentReference?: string) {
   const { data } = await api.post<ReserveEventResponse>('/events/reserve', { eventId, seats, paymentReference });
   return data;
 }
+
 
 export async function fetchNotifications() {
   const { data } = await api.get<{ unread: number; items: NotificationItem[] }>('/notifications');
