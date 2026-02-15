@@ -16,6 +16,11 @@ import { OtpModule } from './modules/otp/otp.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { UsersModule } from './modules/users/users.module';
 import { WalletModule } from './modules/wallet/wallet.module';
+import { BotIntegrationModule } from './modules/bot-integration/bot-integration.module';
+import { MatchingModule } from './modules/matching/matching.module';
+import { QueueModule } from './modules/queue/queue.module';
+import { RedisModule } from './modules/redis/redis.module';
+import { WebhookModule } from './modules/webhook/webhook.module';
 
 @Module({
   imports: [
@@ -31,6 +36,8 @@ import { WalletModule } from './modules/wallet/wallet.module';
     }),
     TypeOrmModule.forRootAsync(typeOrmConfig),
     LoggerModule,
+    RedisModule,
+    QueueModule,
     AuthModule,
     AdminEventsModule,
     UsersModule,
@@ -41,6 +48,9 @@ import { WalletModule } from './modules/wallet/wallet.module';
     NotificationsModule,
     OtpModule,
     HealthModule,
+    MatchingModule,
+    BotIntegrationModule,
+    WebhookModule,
   ],
   providers: [
     {
