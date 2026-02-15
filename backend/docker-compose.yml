@@ -1,0 +1,74 @@
+version: "3.8"
+
+services:
+  # سرویس دیتابیس PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: ravi-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ravi_db
+      POSTGRES_USER: ravi_user
+      POSTGRES_PASSWORD: ravi_password_123
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # اتصال فایل init.sql برای ساخت جداول در اولین اجرا
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ravi_user -d ravi_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ravi-network
+
+  # سرویس Redis برای کش و سشن‌ها
+  redis:
+    image: redis:7-alpine
+    container_name: ravi-redis
+    restart: always
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - ravi-network
+
+  # سرویس مدیریت دیتابیس PgAdmin
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: ravi-pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@ravi.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - ravi-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  ravi-network:
+    driver: bridge

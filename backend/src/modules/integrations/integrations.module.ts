@@ -1,0 +1,12 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { IntegrationsController } from './integrations.controller';
+import { IntegrationsService } from './integrations.service';
+
+@Module({
+  imports: [ConfigModule],
+  providers: [IntegrationsService],
+  controllers: [IntegrationsController],
+  exports: [IntegrationsService],
+})
+export class IntegrationsModule {}
