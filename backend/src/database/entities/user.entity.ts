@@ -4,6 +4,7 @@ import { UserTelegramLinkEntity } from './user-telegram-link.entity';
 import { EventReservationEntity } from './event-reservation.entity';
 import { SubscriptionEntity } from './subscription.entity';
 import { NotificationEntity } from './notification.entity';
+import { UserRole } from '../../modules/common/roles';
 
 export type SubscriptionPlan = 'free' | 'premium';
 
@@ -21,8 +22,8 @@ export class UserEntity {
   @Column({ name: 'password_hash', nullable: true })
   passwordHash?: string;
 
-  @Column({ nullable: true })
-  role?: string;
+  @Column({ type: 'varchar', length: 20, default: 'user' })
+  role!: UserRole;
 
   @Column({ name: 'subscription_plan', default: 'free' })
   subscriptionPlan!: SubscriptionPlan;

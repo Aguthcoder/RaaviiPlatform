@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsDate,
   IsNotEmpty,
@@ -20,26 +22,25 @@ export class CreateEventDto {
   @IsString()
   description?: string;
 
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(100)
-  eventType!: string;
-
   @IsOptional()
   @IsString()
   @MaxLength(100)
   category?: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  eventType?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  city?: string;
+
   @Type(() => Number)
   @IsNumber()
   @Min(1)
   capacity!: number;
-
-  @Type(() => Number)
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  reservedCount?: number;
 
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -51,23 +52,21 @@ export class CreateEventDto {
   startDate!: Date;
 
   @Type(() => Date)
+  @IsOptional()
   @IsDate()
-  endDate!: Date;
+  endDate?: Date;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  location?: string;
-
-  @Type(() => Boolean)
-  @IsOptional()
-  @IsBoolean()
-  isOnline?: boolean;
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  tags?: string[];
 
   @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  instructorName?: string;
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  targetPersonalityTraits?: string[];
 
   @Type(() => Boolean)
   @IsOptional()

@@ -9,6 +9,7 @@ import { OtpCodeEntity } from '../../database/entities/otp-code.entity';
 import { UserEntity } from '../../database/entities/user.entity';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { UserRole } from '../common/roles';
 
 @Injectable()
 export class AuthService {
@@ -34,10 +35,11 @@ export class AuthService {
         mobileNumber: payload.mobileNumber,
         passwordHash,
         subscriptionPlan: 'free',
+        role: 'user',
       }),
     );
 
-    return this.issueTokens(user.id, user.mobileNumber || '', user.email || undefined);
+    return this.issueTokens(user.id, user.mobileNumber || '', user.email || undefined, user.role ?? 'user');
   }
 
   async login(payload: LoginDto) {
@@ -47,7 +49,7 @@ export class AuthService {
     const validPassword = await bcrypt.compare(payload.password, user.passwordHash);
     if (!validPassword) throw new UnauthorizedException('Invalid credentials');
 
-    return this.issueTokens(user.id, user.mobileNumber || '', user.email || undefined);
+    return this.issueTokens(user.id, user.mobileNumber || '', user.email || undefined, user.role ?? 'user');
   }
 
   async requestOtp(mobileNumber: string) {
@@ -100,10 +102,10 @@ export class AuthService {
 
     let user = await this.userRepository.findOne({ where: { mobileNumber: normalizedMobile } });
     if (!user) {
-      user = await this.userRepository.save(this.userRepository.create({ mobileNumber: normalizedMobile }));
+      user = await this.userRepository.save(this.userRepository.create({ mobileNumber: normalizedMobile, role: 'user' }));
     }
 
-    return this.issueTokens(user.id, normalizedMobile, user.email || undefined);
+    return this.issueTokens(user.id, normalizedMobile, user.email || undefined, user.role ?? 'user');
   }
 
   refreshToken(refreshToken: string) {
@@ -113,14 +115,14 @@ export class AuthService {
           this.configService.get<string>('JWT_REFRESH_SECRET') ??
           this.configService.getOrThrow<string>('JWT_SECRET'),
       });
-      return this.issueTokens(payload.sub, payload.mobileNumber, payload.email);
+      return this.issueTokens(payload.sub, payload.mobileNumber, payload.email, payload.role ?? 'user');
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
-  private issueTokens(sub: string, mobileNumber: string, email?: string) {
-    const payload = { sub, mobileNumber, email };
+  private issueTokens(sub: string, mobileNumber: string, email?: string, role: UserRole = 'user') {
+    const payload = { sub, mobileNumber, email, role };
     return {
       accessToken: this.jwtService.sign(payload, {
         secret:
@@ -134,6 +136,12 @@ export class AuthService {
           this.configService.getOrThrow<string>('JWT_SECRET'),
         expiresIn: this.configService.getOrThrow<string>('JWT_REFRESH_EXPIRES_IN'),
       }),
+      user: {
+        id: sub,
+        email,
+        mobileNumber,
+        role,
+      },
     };
   }
 
