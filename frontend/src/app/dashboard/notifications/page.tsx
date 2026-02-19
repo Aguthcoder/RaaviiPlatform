@@ -1,10 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Bell, Calendar, Users, Trophy, Wallet } from "lucide-react";
-import { useRouter } from "next/navigation";
-import BackgroundBlobs from "@/components/BackgroundBlobs";
-import BottomNavbar from "@/components/BottomNavbar";
+import { Bell, Calendar, Users, Trophy, X, CheckCheck } from "lucide-react";
 
 interface Notification {
   id: string;
@@ -13,169 +10,134 @@ interface Notification {
   message: string;
   time: string;
   read: boolean;
-  icon: typeof Bell;
   color: string;
+  emoji: string;
 }
 
-const sampleNotifications: Notification[] = [
+const SAMPLE: Notification[] = [
   {
-    id: "1",
-    type: "event",
+    id: "1", type: "event",
     title: "یک روز تا همنشینی!",
     message: "همنشینی «قدم زدن در پارک لاله» فردا ساعت ۱۷:۰۰ شروع می‌شه",
-    time: "۲ ساعت پیش",
-    read: false,
-    icon: Calendar,
-    color: "bg-blue-500",
+    time: "۲ ساعت پیش", read: false, color: "rgba(59,130,246,0.2)", emoji: "📅"
   },
   {
-    id: "2",
-    type: "match",
+    id: "2", type: "match",
     title: "تطابق جدید!",
     message: "۱۵ نفر منتظر همنشینی با شما هستند. الان رزرو کن!",
-    time: "۵ ساعت پیش",
-    read: false,
-    icon: Users,
-    color: "bg-raavi-orange",
+    time: "۵ ساعت پیش", read: false, color: "rgba(255,107,0,0.2)", emoji: "🤝"
   },
   {
-    id: "3",
-    type: "reward",
+    id: "3", type: "reward",
     title: "پاداش جدید!",
     message: "۵۰ امتیاز برای تکمیل پروفایل به کیف پول شما اضافه شد",
-    time: "دیروز",
-    read: true,
-    icon: Trophy,
-    color: "bg-green-500",
+    time: "دیروز", read: true, color: "rgba(34,197,94,0.2)", emoji: "🏆"
   },
   {
-    id: "4",
-    type: "system",
+    id: "4", type: "system",
     title: "به‌روزرسانی راوی",
     message: "نسخه جدید راوی با قابلیت‌های جدید منتشر شد!",
-    time: "۲ روز پیش",
-    read: true,
-    icon: Bell,
-    color: "bg-purple-500",
+    time: "۲ روز پیش", read: true, color: "rgba(168,85,247,0.2)", emoji: "🔔"
   },
 ];
 
 export default function NotificationsPage() {
-  const router = useRouter();
-  const [notifications, setNotifications] = useState(sampleNotifications);
+  const [notifs, setNotifs] = useState(SAMPLE);
 
-  const handleMarkAsRead = (id: string) => {
-    setNotifications(
-      notifications.map((notif) =>
-        notif.id === id ? { ...notif, read: true } : notif
-      )
-    );
-  };
+  const markRead = (id: string) =>
+    setNotifs((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+  const markAllRead = () => setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+  const dismiss = (id: string) => setNotifs((prev) => prev.filter((n) => n.id !== id));
 
-  const handleMarkAllAsRead = () => {
-    setNotifications(
-      notifications.map((notif) => ({ ...notif, read: true }))
-    );
-  };
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unread = notifs.filter((n) => !n.read).length;
 
   return (
-    <div className="min-h-screen pb-24 pt-8 px-4 relative">
-      <BackgroundBlobs />
+    <div className="max-w-2xl mx-auto pb-8 space-y-4">
 
-      <div className="max-w-3xl mx-auto relative z-10">
-        {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-slate-600 hover:text-navy-900 mb-4 transition"
-          >
-            <ArrowRight size={20} />
-            <span className="font-medium">بازگشت</span>
-          </button>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-black text-navy-900 mb-2 font-estedad">
-                اعلان‌ها
-              </h1>
-              {unreadCount > 0 && (
-                <p className="text-raavi-orange font-bold">
-                  {unreadCount} اعلان خوانده نشده
-                </p>
-              )}
-            </div>
-
-            {unreadCount > 0 && (
-              <button
-                onClick={handleMarkAllAsRead}
-                className="px-4 py-2 bg-raavi-orange text-white font-bold rounded-xl hover:bg-raavi-600 transition text-sm"
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-black text-white flex items-center gap-2">
+            <Bell size={20} className="text-orange-400" />
+            اعلان‌ها
+            {unread > 0 && (
+              <span
+                className="text-xs font-black px-2 py-0.5 rounded-full"
+                style={{ background: "rgba(255,107,0,0.9)", color: "white" }}
               >
-                خواندن همه
-              </button>
+                {unread}
+              </span>
             )}
-          </div>
+          </h1>
+          {unread > 0 && (
+            <p className="text-slate-500 text-xs mt-0.5">{unread} اعلان خوانده‌نشده</p>
+          )}
         </div>
-
-        {/* Notifications List */}
-        {notifications.length > 0 ? (
-          <div className="space-y-4">
-            {notifications.map((notification) => {
-              const Icon = notification.icon;
-
-              return (
-                <div
-                  key={notification.id}
-                  onClick={() => handleMarkAsRead(notification.id)}
-                  className={`bg-white rounded-3xl p-6 transition-all hover:shadow-xl cursor-pointer ${
-                    !notification.read ? "border-2 border-raavi-orange" : ""
-                  }`}
-                >
-                  <div className="flex gap-4">
-                    <div
-                      className={`w-12 h-12 ${notification.color} rounded-xl flex items-center justify-center text-white flex-shrink-0`}
-                    >
-                      <Icon size={24} />
-                    </div>
-
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-black text-navy-900 font-estedad">
-                          {notification.title}
-                        </h3>
-                        {!notification.read && (
-                          <div className="w-2 h-2 bg-raavi-orange rounded-full flex-shrink-0"></div>
-                        )}
-                      </div>
-
-                      <p className="text-slate-600 text-sm mb-2">
-                        {notification.message}
-                      </p>
-
-                      <p className="text-slate-400 text-xs">
-                        {notification.time}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="text-center py-20">
-            <div className="text-6xl mb-4">🔔</div>
-            <h3 className="text-2xl font-bold text-navy-900 mb-2">
-              اعلانی وجود ندارد
-            </h3>
-            <p className="text-slate-600">
-              اعلان‌های جدید اینجا نمایش داده می‌شوند
-            </p>
-          </div>
+        {unread > 0 && (
+          <button
+            onClick={markAllRead}
+            className="flex items-center gap-1.5 text-xs font-bold text-orange-400
+                       hover:text-orange-300 transition-colors px-3 py-1.5 rounded-xl
+                       border border-orange-500/25 hover:border-orange-500/50"
+          >
+            <CheckCheck size={13} /> خواندن همه
+          </button>
         )}
       </div>
 
-      <BottomNavbar />
+      {/* List */}
+      {notifs.length === 0 ? (
+        <div className="rounded-3xl p-10 text-center border border-white/8"
+          style={{ background: "rgba(255,255,255,0.03)" }}>
+          <div className="text-5xl mb-3">🔔</div>
+          <p className="text-white font-bold">اعلانی وجود ندارد</p>
+          <p className="text-slate-500 text-xs mt-1">اعلان‌های جدید اینجا نمایش داده می‌شوند</p>
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {notifs.map((n) => (
+            <div
+              key={n.id}
+              onClick={() => markRead(n.id)}
+              className="rounded-2xl p-4 cursor-pointer transition-all hover:scale-[1.01]
+                         border border-white/8"
+              style={{
+                background: n.read ? "rgba(255,255,255,0.03)" : "rgba(255,107,0,0.05)",
+                borderColor: n.read ? "rgba(255,255,255,0.07)" : "rgba(255,107,0,0.2)",
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center text-xl
+                             flex-shrink-0 shadow-lg"
+                  style={{ background: n.color }}
+                >
+                  {n.emoji}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-black text-sm text-white leading-tight">{n.title}</h3>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {!n.read && (
+                        <div className="w-2 h-2 bg-orange-500 rounded-full" />
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); dismiss(n.id); }}
+                        className="text-slate-600 hover:text-slate-300 transition-colors"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-slate-400 text-xs mt-1 leading-relaxed">{n.message}</p>
+                  <p className="text-slate-600 text-[10px] mt-1.5">{n.time}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

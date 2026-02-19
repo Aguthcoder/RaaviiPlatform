@@ -1,14 +1,12 @@
-import { Module } from '@nestjs/common';
+﻿import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { JwtModule } from '@nestjs/jwt';
-import { NotificationEntity } from '../../database/entities/notification.entity';
-import { JwtAuthGuard } from '../common/jwt-auth.guard';
-import { NotificationsController } from './notifications.controller';
+import { Notification } from './notification.entity';
 import { NotificationsService } from './notifications.service';
+import { NotificationsController } from './notifications.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([NotificationEntity]), JwtModule.register({})],
-  providers: [NotificationsService, JwtAuthGuard],
+  imports: [TypeOrmModule.forFeature([Notification])],
+  providers: [NotificationsService],
   controllers: [NotificationsController],
   exports: [NotificationsService],
 })

@@ -1,0 +1,267 @@
+{
+  "name": "Ravi Smart Matching Workflow v2",
+  "nodes": [
+    {
+      "id": "1",
+      "name": "1. Ingestion (Webhook Trigger)",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ravi-events",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "2",
+      "name": "2. Normalization",
+      "type": "n8n-nodes-base.function",
+      "position": [460, 300],
+      "parameters": {
+        "functionCode": "// نرمال‌سازی و تمیزسازی داده‌های ورودی از تلگرام\nreturn items.map(item => {\n  const raw = item.json;\n  const type = raw.type || 'message';\n  \n  // تمیزسازی متن\n  let text = (raw.payload?.text || raw.text || '').trim();\n  text = text.replace(/[<>]/g, '').substring(0, 4000); // XSS prevention\n  \n  return {\n    json: {\n      type,\n      eventId: raw.eventId || raw.event_id || null,\n      userId: raw.userId || raw.user_id || null,\n      telegramId: raw.telegramId || null,\n      text,\n      hasMedia: !!(raw.payload?.photo || raw.payload?.document),\n      mediaFileId: raw.payload?.photo?.[0]?.file_id || raw.payload?.document?.file_id || null,\n      timestamp: new Date().toISOString(),\n      payload: raw.payload || {}\n    }\n  };\n});"
+      }
+    },
+    {
+      "id": "3",
+      "name": "3. Content Router (NLP vs Media)",
+      "type": "n8n-nodes-base.switch",
+      "position": [680, 300],
+      "parameters": {
+        "dataPropertyName": "hasMedia",
+        "rules": {
+          "rules": [
+            {"value1": "={{ $json.hasMedia }}", "operation": "equal", "value2": "true", "output": 1},
+            {"value1": "={{ $json.hasMedia }}", "operation": "equal", "value2": "false", "output": 0}
+          ]
+        }
+      }
+    },
+    {
+      "id": "4a",
+      "name": "4a. AI Text Enrichment (NLP)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 200],
+      "parameters": {
+        "url": "http://ai-engine:8001/enrich",
+        "method": "POST",
+        "bodyParametersUi": {
+          "parameter": [
+            {"name": "text", "value": "={{ $json.text }}"},
+            {"name": "userId", "value": "={{ $json.userId }}"},
+            {"name": "extractSentiment", "value": true},
+            {"name": "extractKeywords", "value": true},
+            {"name": "generateEmbedding", "value": true}
+          ]
+        },
+        "options": {"timeout": 15000}
+      }
+    },
+    {
+      "id": "4b",
+      "name": "4b. Media Storage (MinIO)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 420],
+      "parameters": {
+        "url": "http://minio:9000/ravi-media",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameter": [
+            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.MINIO_TOKEN }}"}
+          ]
+        },
+        "bodyParametersUi": {
+          "parameter": [
+            {"name": "fileId", "value": "={{ $json.mediaFileId }}"},
+            {"name": "userId", "value": "={{ $json.userId }}"}
+          ]
+        },
+        "options": {"timeout": 30000}
+      }
+    },
+    {
+      "id": "5",
+      "name": "5. Vectorization & pgvector Storage",
+      "type": "n8n-nodes-base.function",
+      "position": [1120, 300],
+      "parameters": {
+        "functionCode": "// ذخیره‌سازی بردار در pgvector + Postgres\n// این node داده‌های غنی‌شده از AI را به pgvector ذخیره می‌کند\n\nreturn items.map(item => {\n  const data = item.json;\n  \n  // آماده‌سازی payload برای بکند\n  const vectorPayload = {\n    userId: data.userId,\n    eventId: data.eventId,\n    embedding: data.embedding || null,       // OpenAI 1536-dim vector\n    sentiment: data.sentiment || null,        // positive/negative/neutral\n    keywords: data.keywords || [],            // کلمات کلیدی\n    enrichedAt: new Date().toISOString(),\n    vectorsReady: !!(data.embedding),\n    mediaUrl: data.mediaUrl || null\n  };\n  \n  return { json: vectorPayload };\n});"
+      }
+    },
+    {
+      "id": "6",
+      "name": "6. Store to pgvector DB",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1340, 300],
+      "parameters": {
+        "url": "http://backend:4000/api/webhooks/n8n/store-vector",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameter": [
+            {"name": "x-n8n-secret", "value": "={{ $env.N8N_WEBHOOK_SECRET }}"}
+          ]
+        },
+        "bodyParametersUi": {
+          "parameter": [
+            {"name": "userId", "value": "={{ $json.userId }}"},
+            {"name": "eventId", "value": "={{ $json.eventId }}"},
+            {"name": "embedding", "value": "={{ JSON.stringify($json.embedding) }}"},
+            {"name": "sentiment", "value": "={{ $json.sentiment }}"},
+            {"name": "keywords", "value": "={{ JSON.stringify($json.keywords) }}"}
+          ]
+        }
+      }
+    },
+    {
+      "id": "7",
+      "name": "7. Trigger Matching Engine",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1560, 300],
+      "parameters": {
+        "url": "http://matching-service:8002/match",
+        "method": "POST",
+        "bodyParametersUi": {
+          "parameter": [
+            {"name": "event_id", "value": "={{ $json.eventId }}"},
+            {"name": "min_group_size", "value": 4},
+            {"name": "max_group_size", "value": 6},
+            {"name": "require_gender_diversity", "value": true}
+          ]
+        },
+        "options": {"timeout": 60000}
+      }
+    },
+    {
+      "id": "8",
+      "name": "8. Action Execution",
+      "type": "n8n-nodes-base.switch",
+      "position": [1780, 300],
+      "parameters": {
+        "dataPropertyName": "type",
+        "rules": {
+          "rules": [
+            {"value1": "={{ $json.type }}", "operation": "equal", "value2": "before_event", "output": 0},
+            {"value1": "={{ $json.type }}", "operation": "equal", "value2": "after_event", "output": 1},
+            {"value1": "={{ $json.type }}", "operation": "equal", "value2": "matching_complete", "output": 2}
+          ]
+        }
+      }
+    },
+    {
+      "id": "9a",
+      "name": "9a. Send Group Invites",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2000, 200],
+      "parameters": {
+        "url": "http://bot:8080/internal/invite",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameter": [
+            {"name": "x-ravi-bot-secret", "value": "={{ $env.BOT_WEBHOOK_SHARED_SECRET }}"}
+          ]
+        },
+        "bodyParametersUi": {
+          "parameter": [
+            {"name": "telegramUserId", "value": "={{ $json.telegramId }}"},
+            {"name": "groupId", "value": "={{ $json.groupId }}"},
+            {"name": "groupLink", "value": "={{ $json.groupLink }}"},
+            {"name": "eventId", "value": "={{ $json.eventId }}"},
+            {"name": "eventTitle", "value": "={{ $json.eventTitle }}"}
+          ]
+        }
+      }
+    },
+    {
+      "id": "9b",
+      "name": "9b. Request Feedback",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2000, 380],
+      "parameters": {
+        "url": "http://bot:8080/internal/feedback",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameter": [
+            {"name": "x-ravi-bot-secret", "value": "={{ $env.BOT_WEBHOOK_SHARED_SECRET }}"}
+          ]
+        },
+        "bodyParametersUi": {
+          "parameter": [
+            {"name": "userId", "value": "={{ $json.userId }}"},
+            {"name": "eventId", "value": "={{ $json.eventId }}"},
+            {"name": "eventTitle", "value": "={{ $json.eventTitle }}"}
+          ]
+        }
+      }
+    },
+    {
+      "id": "9c",
+      "name": "9c. Notify Backend of Match",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2000, 540],
+      "parameters": {
+        "url": "http://backend:4000/api/webhooks/n8n",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameter": [
+            {"name": "x-n8n-secret", "value": "={{ $env.N8N_WEBHOOK_SECRET }}"}
+          ]
+        },
+        "bodyParametersUi": {
+          "parameter": [
+            {"name": "type", "value": "matching_complete"},
+            {"name": "eventId", "value": "={{ $json.event_id }}"},
+            {"name": "groups", "value": "={{ JSON.stringify($json.groups) }}"},
+            {"name": "totalUsers", "value": "={{ $json.total_users }}"}
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "1. Ingestion (Webhook Trigger)": {
+      "main": [[{"node": "2. Normalization", "type": "main", "index": 0}]]
+    },
+    "2. Normalization": {
+      "main": [[{"node": "3. Content Router (NLP vs Media)", "type": "main", "index": 0}]]
+    },
+    "3. Content Router (NLP vs Media)": {
+      "main": [
+        [{"node": "4a. AI Text Enrichment (NLP)", "type": "main", "index": 0}],
+        [{"node": "4b. Media Storage (MinIO)", "type": "main", "index": 0}]
+      ]
+    },
+    "4a. AI Text Enrichment (NLP)": {
+      "main": [[{"node": "5. Vectorization & pgvector Storage", "type": "main", "index": 0}]]
+    },
+    "4b. Media Storage (MinIO)": {
+      "main": [[{"node": "5. Vectorization & pgvector Storage", "type": "main", "index": 0}]]
+    },
+    "5. Vectorization & pgvector Storage": {
+      "main": [[{"node": "6. Store to pgvector DB", "type": "main", "index": 0}]]
+    },
+    "6. Store to pgvector DB": {
+      "main": [[{"node": "7. Trigger Matching Engine", "type": "main", "index": 0}]]
+    },
+    "7. Trigger Matching Engine": {
+      "main": [[{"node": "8. Action Execution", "type": "main", "index": 0}]]
+    },
+    "8. Action Execution": {
+      "main": [
+        [{"node": "9a. Send Group Invites", "type": "main", "index": 0}],
+        [{"node": "9b. Request Feedback", "type": "main", "index": 0}],
+        [{"node": "9c. Notify Backend of Match", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "settings": {
+    "saveManualExecutions": true,
+    "callerPolicy": "any",
+    "errorWorkflow": ""
+  },
+  "tags": ["ravi", "matching", "telegram"]
+}

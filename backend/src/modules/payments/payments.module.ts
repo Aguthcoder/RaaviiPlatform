@@ -1,15 +1,14 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { JwtAuthGuard } from '../common/jwt-auth.guard';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { BookingEntity } from '../../database/entities/booking.entity';
-import { PaymentEntity } from '../../database/entities/payment.entity';
 import { PaymentsController } from './payments.controller';
-import { PaymentsService } from './payments.service';
+import { Payment } from './entities/payment.entity';
+import { Booking } from '../bookings/entities/booking.entity';
+import { Event } from '../events/entities/event.entity';
+import { User } from '../users/entities/user.entity';
 
 @Module({
-  imports: [JwtModule.register({}), TypeOrmModule.forFeature([PaymentEntity, BookingEntity])],
-  providers: [JwtAuthGuard, PaymentsService],
+  imports: [TypeOrmModule.forFeature([Payment, Booking, Event, User])],
   controllers: [PaymentsController],
+  exports: [],
 })
 export class PaymentsModule {}

@@ -1,21 +1,32 @@
-import { Body, Controller, Get, Patch, Req, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../common/jwt-auth.guard';
+﻿import {
+  Controller, Get, Patch, Param,
+  UseGuards, Request
+} from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(private readonly svc: NotificationsService) {}
 
   @Get()
-  async list(@Req() req: { user: { sub: string } }) {
-    const notifications = await this.notificationsService.listForUser(req.user.sub);
-    const unread = notifications.filter((notification) => !notification.isRead).length;
-    return { unread, items: notifications };
+  findAll(@Request() req: any) {
+    return this.svc.findByUser(req.user.id);
   }
 
-  @Patch('read')
-  markRead(@Req() req: { user: { sub: string } }, @Body() body: { ids: string[] }) {
-    return this.notificationsService.markRead(req.user.sub, body.ids || []);
+  @Get('unread-count')
+  getUnreadCount(@Request() req: any) {
+    return this.svc.getUnreadCount(req.user.id);
+  }
+
+  @Patch(':id/read')
+  markRead(@Param('id') id: string, @Request() req: any) {
+    return this.svc.markRead(id, req.user.id);
+  }
+
+  @Patch('read-all')
+  markAllRead(@Request() req: any) {
+    return this.svc.markAllRead(req.user.id);
   }
 }

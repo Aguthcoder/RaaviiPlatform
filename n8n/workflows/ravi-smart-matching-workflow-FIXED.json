@@ -1,0 +1,375 @@
+{
+  "name": "Ravi Smart Matching Workflow v3 — FIXED",
+  "nodes": [
+    {
+      "id": "1",
+      "name": "1. Ingestion (Webhook Trigger)",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ravi-events",
+        "responseMode": "onReceived",
+        "authentication": "headerAuth",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "N8N Webhook Secret",
+          "id": "webhook-secret-cred"
+        }
+      }
+    },
+    {
+      "id": "2",
+      "name": "2. Validate & Normalize Payload",
+      "type": "n8n-nodes-base.function",
+      "position": [460, 300],
+      "parameters": {
+        "functionCode": "// ── FIXED: Added proper input validation + null safety ──\nreturn items.map(item => {\n  const raw = item.json;\n\n  // Guard against missing body\n  if (!raw || typeof raw !== 'object') {\n    throw new Error('Invalid payload: empty or non-object body');\n  }\n\n  const type = raw.type || 'message';\n  let text = (raw.payload?.text || raw.text || '').trim();\n  // XSS prevention\n  text = text.replace(/[<>\"']/g, '').substring(0, 4000);\n\n  // FIXED: validate required fields\n  const userId = raw.userId || raw.user_id || null;\n  const eventId = raw.eventId || raw.event_id || null;\n  const telegramId = raw.telegramId || raw.telegram_id || null;\n\n  if (!userId) {\n    throw new Error('Missing required field: userId');\n  }\n\n  return {\n    json: {\n      type,\n      eventId,\n      userId,\n      telegramId,\n      text,\n      hasMedia: !!(raw.payload?.photo || raw.payload?.document),\n      mediaFileId: raw.payload?.photo?.[0]?.file_id || raw.payload?.document?.file_id || null,\n      timestamp: new Date().toISOString(),\n      payload: raw.payload || {},\n      // FIXED: pass-through metadata for downstream nodes\n      _raw: raw\n    }\n  };\n});"
+      }
+    },
+    {
+      "id": "3",
+      "name": "3. Content Router (NLP vs Media)",
+      "type": "n8n-nodes-base.switch",
+      "position": [680, 300],
+      "parameters": {
+        "dataPropertyName": "hasMedia",
+        "rules": {
+          "rules": [
+            {
+              "value1": "={{ $json.hasMedia }}",
+              "operation": "equal",
+              "value2": "true",
+              "output": 1
+            },
+            {
+              "value1": "={{ $json.hasMedia }}",
+              "operation": "equal",
+              "value2": "false",
+              "output": 0
+            }
+          ]
+        },
+        "fallbackOutput": 0
+      }
+    },
+    {
+      "id": "4a",
+      "name": "4a. AI Text Enrichment (NLP)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 180],
+      "parameters": {
+        "url": "http://ai-engine:8001/enrich",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameter": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-service-secret",
+              "value": "={{ $env.AI_ENGINE_SECRET }}"
+            }
+          ]
+        },
+        "bodyContentType": "json",
+        "jsonParameters": true,
+        "bodyParametersJson": "={{ JSON.stringify({ text: $json.text, userId: $json.userId, extractSentiment: true, extractKeywords: true, generateEmbedding: true }) }}",
+        "options": {
+          "timeout": 15000,
+          "allowUnauthorizedCerts": false
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "4b",
+      "name": "4b. Media Storage (MinIO)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 420],
+      "parameters": {
+        "url": "http://minio:9000/ravi-media",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.MINIO_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "bodyContentType": "json",
+        "jsonParameters": true,
+        "bodyParametersJson": "={{ JSON.stringify({ fileId: $json.mediaFileId, userId: $json.userId }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "5",
+      "name": "5. Merge & Prepare Vector Payload",
+      "type": "n8n-nodes-base.function",
+      "position": [1120, 300],
+      "parameters": {
+        "functionCode": "// FIXED: Handles both NLP path (4a) and Media path (4b)\n// Also handles continueOnFail errors gracefully\nreturn items.map(item => {\n  const data = item.json;\n\n  // If upstream node failed, use empty defaults\n  const embedding = data.embedding || null;\n  const sentiment = data.sentiment || 'neutral';\n  const keywords = Array.isArray(data.keywords) ? data.keywords : [];\n  const mediaUrl = data.mediaUrl || null;\n\n  const vectorPayload = {\n    userId: data.userId,\n    eventId: data.eventId,\n    telegramId: data.telegramId,\n    embedding,\n    sentiment,\n    keywords,\n    enrichedAt: new Date().toISOString(),\n    vectorsReady: !!(embedding),\n    mediaUrl\n  };\n\n  return { json: vectorPayload };\n});"
+      }
+    },
+    {
+      "id": "6",
+      "name": "6. Store to Backend (pgvector)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1340, 300],
+      "parameters": {
+        "url": "http://backend:4000/api/webhooks/n8n/store-vector",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameter": [
+            {
+              "name": "x-n8n-secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "bodyContentType": "json",
+        "jsonParameters": true,
+        "bodyParametersJson": "={{ JSON.stringify({ userId: $json.userId, eventId: $json.eventId, embedding: $json.embedding, sentiment: $json.sentiment, keywords: $json.keywords, mediaUrl: $json.mediaUrl }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "7",
+      "name": "7. Trigger Matching Engine",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1560, 300],
+      "parameters": {
+        "url": "http://matching-service:8002/match",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameter": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-service-secret",
+              "value": "={{ $env.MATCHING_SERVICE_SECRET }}"
+            }
+          ]
+        },
+        "bodyContentType": "json",
+        "jsonParameters": true,
+        "bodyParametersJson": "={{ JSON.stringify({ event_id: $json.eventId, min_group_size: 4, max_group_size: 6, require_gender_diversity: true, user_id: $json.userId }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "8",
+      "name": "8. Check Matching Result & Route",
+      "type": "n8n-nodes-base.switch",
+      "position": [1780, 300],
+      "parameters": {
+        "dataPropertyName": "status",
+        "rules": {
+          "rules": [
+            {
+              "value1": "={{ $json.status }}",
+              "operation": "equal",
+              "value2": "before_event",
+              "output": 0
+            },
+            {
+              "value1": "={{ $json.status }}",
+              "operation": "equal",
+              "value2": "after_event",
+              "output": 1
+            },
+            {
+              "value1": "={{ $json.status }}",
+              "operation": "equal",
+              "value2": "matching_complete",
+              "output": 2
+            }
+          ]
+        },
+        "fallbackOutput": 2
+      }
+    },
+    {
+      "id": "9a",
+      "name": "9a. Send Group Invites via Telegram Bot",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2000, 180],
+      "parameters": {
+        "url": "http://bot:8000/internal/invite",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameter": [
+            {
+              "name": "x-ravi-bot-secret",
+              "value": "={{ $env.BOT_WEBHOOK_SHARED_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "bodyContentType": "json",
+        "jsonParameters": true,
+        "bodyParametersJson": "={{ JSON.stringify({ telegramUserId: $json.telegramId, groupId: $json.groupId, groupLink: $json.groupLink, eventId: $json.eventId, eventTitle: $json.eventTitle }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "9b",
+      "name": "9b. Request Feedback via Telegram Bot",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2000, 360],
+      "parameters": {
+        "url": "http://bot:8000/internal/feedback",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameter": [
+            {
+              "name": "x-ravi-bot-secret",
+              "value": "={{ $env.BOT_WEBHOOK_SHARED_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "bodyContentType": "json",
+        "jsonParameters": true,
+        "bodyParametersJson": "={{ JSON.stringify({ userId: $json.telegramId, eventId: $json.eventId, eventTitle: $json.eventTitle }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "9c",
+      "name": "9c. Notify Backend of Match Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2000, 540],
+      "parameters": {
+        "url": "http://backend:4000/api/webhooks/n8n",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameter": [
+            {
+              "name": "x-n8n-secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "bodyContentType": "json",
+        "jsonParameters": true,
+        "bodyParametersJson": "={{ JSON.stringify({ type: 'matching_complete', eventId: $json.event_id, groups: $json.groups || [], totalUsers: $json.total_users || 0, timestamp: new Date().toISOString() }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "10",
+      "name": "10. Error Logger",
+      "type": "n8n-nodes-base.function",
+      "position": [2220, 400],
+      "parameters": {
+        "functionCode": "// Log all errors for monitoring\nreturn items.map(item => {\n  if (item.json.error) {\n    console.error('N8N Workflow Error:', JSON.stringify(item.json));\n  }\n  return item;\n});"
+      }
+    }
+  ],
+  "connections": {
+    "1. Ingestion (Webhook Trigger)": {
+      "main": [[{ "node": "2. Validate & Normalize Payload", "type": "main", "index": 0 }]]
+    },
+    "2. Validate & Normalize Payload": {
+      "main": [[{ "node": "3. Content Router (NLP vs Media)", "type": "main", "index": 0 }]]
+    },
+    "3. Content Router (NLP vs Media)": {
+      "main": [
+        [{ "node": "4a. AI Text Enrichment (NLP)", "type": "main", "index": 0 }],
+        [{ "node": "4b. Media Storage (MinIO)", "type": "main", "index": 0 }]
+      ]
+    },
+    "4a. AI Text Enrichment (NLP)": {
+      "main": [[{ "node": "5. Merge & Prepare Vector Payload", "type": "main", "index": 0 }]]
+    },
+    "4b. Media Storage (MinIO)": {
+      "main": [[{ "node": "5. Merge & Prepare Vector Payload", "type": "main", "index": 0 }]]
+    },
+    "5. Merge & Prepare Vector Payload": {
+      "main": [[{ "node": "6. Store to Backend (pgvector)", "type": "main", "index": 0 }]]
+    },
+    "6. Store to Backend (pgvector)": {
+      "main": [[{ "node": "7. Trigger Matching Engine", "type": "main", "index": 0 }]]
+    },
+    "7. Trigger Matching Engine": {
+      "main": [[{ "node": "8. Check Matching Result & Route", "type": "main", "index": 0 }]]
+    },
+    "8. Check Matching Result & Route": {
+      "main": [
+        [{ "node": "9a. Send Group Invites via Telegram Bot", "type": "main", "index": 0 }],
+        [{ "node": "9b. Request Feedback via Telegram Bot", "type": "main", "index": 0 }],
+        [{ "node": "9c. Notify Backend of Match Complete", "type": "main", "index": 0 }]
+      ]
+    },
+    "9a. Send Group Invites via Telegram Bot": {
+      "main": [[{ "node": "10. Error Logger", "type": "main", "index": 0 }]]
+    },
+    "9b. Request Feedback via Telegram Bot": {
+      "main": [[{ "node": "10. Error Logger", "type": "main", "index": 0 }]]
+    },
+    "9c. Notify Backend of Match Complete": {
+      "main": [[{ "node": "10. Error Logger", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "saveManualExecutions": true,
+    "callerPolicy": "any",
+    "errorWorkflow": "ravi-error-handler",
+    "timezone": "Asia/Tehran",
+    "executionOrder": "v1"
+  },
+  "tags": ["ravi", "matching", "telegram", "v3-fixed"]
+}

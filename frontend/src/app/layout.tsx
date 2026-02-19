@@ -1,75 +1,42 @@
-import type { Metadata } from 'next';
-import { Vazirmatn } from 'next/font/google';
-import dynamic from 'next/dynamic';
-import './globals.css';
-import { AppProvider } from '@/context/AppContext';
-import AccessGate from '@/components/AccessGate';
-import ErrorBoundary from '@/components/ErrorBoundary';
+import type { Metadata } from "next";
+import localFont from "next/font/local";
+import "./globals.css";
 
-const ClientShell = dynamic(() => import('@/components/ClientShell'));
-const GlobalBottomNav = dynamic(() => import('@/components/GlobalBottomNav'));
+import AppProvider from "@/context/AppContext";
+import { AnimatedBackground } from "@/components/ui/animated-background";
+import BottomNav from "@/components/BottomNav";
+import TopHeader from "@/components/TopHeader";
+import { ProfileGuard } from "@/components/ProfileGuard";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-
-const vazirmatn = Vazirmatn({
-  subsets: ['arabic', 'latin'],
-  variable: '--font-vazirmatn',
-  display: 'swap',
-  preload: true,
+const vazirmatn = localFont({
+  src: "./fonts/Vazirmatn-Regular.woff2",
+  variable: "--font-vazirmatn",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: {
-    default: 'راوی - پلتفرم هوشمند همنشینی',
-    template: '%s | راوی',
-  },
-  description: 'راوی با استفاده از الگوریتم‌های هوشمند، افراد را به همنشینی‌های سازگار متصل می‌کند.',
-  applicationName: 'Raavi',
-  openGraph: {
-    type: 'website',
-    locale: 'fa_IR',
-    url: siteUrl,
-    siteName: 'Raavi',
-    title: 'راوی - پلتفرم هوشمند همنشینی',
-    description: 'راوی با استفاده از الگوریتم‌های هوشمند، افراد را به همنشینی‌های سازگار متصل می‌کند.',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'راوی - پلتفرم هوشمند همنشینی',
-    description: 'راوی با استفاده از الگوریتم‌های هوشمند، افراد را به همنشینی‌های سازگار متصل می‌کند.',
-  },
-  manifest: '/manifest.json',
-  robots: {
-    index: true,
-    follow: true,
-  },
-  alternates: {
-    canonical: '/',
-  },
+  title: "راوی - پلتفرم هوشمند یافتن دوست",
+  description: "با راوی به جامعه‌ای از افراد می‌پیوندید که به دنبال روابط معنادار هستند",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fa" dir="rtl">
-      <body className={`${vazirmatn.variable} font-sans bg-white`}>
+    <html lang="fa" dir="rtl" className={vazirmatn.variable}>
+      <body className="font-sans antialiased bg-white">
+        {/* 🔵 Animated 3D circles on EVERY page — fixed behind all content */}
+        <AnimatedBackground />
+
         <AppProvider>
-          <ClientShell>
-            <ErrorBoundary><AccessGate>
-              <div className="background-animate">
-                <span></span>
-                <span></span>
-                <span></span>
-                <span></span>
-                <span></span>
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
+          <TopHeader />
+
+          <div className="relative z-10 pt-16">
+            {/* Profile completion guard — enforces onboarding flow */}
+            <ProfileGuard>
               {children}
-              <GlobalBottomNav />
-            </AccessGate></ErrorBoundary>
-          </ClientShell>
+            </ProfileGuard>
+          </div>
+
+          <BottomNav />
         </AppProvider>
       </body>
     </html>

@@ -1,58 +1,42 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
-import { EventEntity } from './event.entity';
-import { UserEntity } from './user.entity';
+﻿import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { User } from './user.entity';
 
-export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'expired' | 'waitlist';
-export type BookingPaymentStatus = 'unpaid' | 'pending' | 'paid' | 'refunded' | 'failed';
-
-@Entity({ name: 'bookings' })
-export class BookingEntity {
+@Entity('bookings')
+export class Booking {
   @PrimaryGeneratedColumn('uuid')
-  id!: string;
-
-  @Column({ name: 'event_id' })
-  eventId!: string;
+  id: string;
 
   @Column({ name: 'user_id' })
-  userId!: string;
+  userId: string;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'user_id' })
+  user: User;
+
+  @Column()
+  service: string;
+
+  @Column({ type: 'timestamp', name: 'booking_date' })
+  bookingDate: Date;
 
   @Column({ default: 'pending' })
-  status!: BookingStatus;
+  status: string;
 
-  @Column({ name: 'payment_status', default: 'unpaid' })
-  paymentStatus!: BookingPaymentStatus;
+  @Column({ type: 'text', nullable: true })
+  notes?: string;
 
-  @Column({ name: 'payment_id', nullable: true })
-  paymentId?: string;
+  @Column({ type: 'text', nullable: true, name: 'cancellation_reason' })
+  cancellationReason?: string;
 
-  @Column({ name: 'amount_paid', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  amountPaid?: string;
+  @Column({ type: 'timestamp', nullable: true, name: 'cancelled_at' })
+  cancelledAt?: Date;
 
-  @Column({ name: 'booking_code', nullable: true })
-  bookingCode?: string;
-
-  @Column({ name: 'confirmed_at', type: 'timestamp', nullable: true })
-  confirmedAt?: Date;
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true, name: 'amount_paid' })
+  amountPaid?: number;
 
   @CreateDateColumn({ name: 'created_at' })
-  createdAt!: Date;
+  createdAt: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt!: Date;
-
-  @ManyToOne(() => EventEntity, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'event_id' })
-  event!: EventEntity;
-
-  @ManyToOne(() => UserEntity, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
-  user!: UserEntity;
+  updatedAt: Date;
 }

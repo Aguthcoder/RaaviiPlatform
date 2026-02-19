@@ -1,10 +1,11 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsString, IsNotEmpty } from 'class-validator';
 
 export class LoginDto {
-  @IsEmail()
-  email!: string;
+  @IsString()
+  @IsNotEmpty()
+  identifier: string; // ایمیل یا شماره موبایل
 
   @IsString()
-  @MinLength(6)
-  password!: string;
+  @IsNotEmpty()
+  password: string;
 }

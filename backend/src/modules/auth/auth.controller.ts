@@ -1,82 +1,61 @@
-import { Body, Controller, Post, Req, Res } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
-import { Response } from 'express';
+import { Controller, Post, Get, Body, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-import { RequestOtpDto } from './dto/request-otp.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { LoginDto } from './dto/login.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
-@Controller('auth')
+@Controller('api/auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
-
-  @Post('register')
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
-  async register(@Body() body: RegisterDto, @Res({ passthrough: true }) res: Response) {
-    const data = await this.authService.register(body);
-    this.setAuthCookies(res, data.accessToken, data.refreshToken);
-    return { message: 'Registered successfully' };
-  }
-
-  @Post('login')
-  @Throttle({ default: { limit: 8, ttl: 60000 } })
-  async login(@Body() body: LoginDto, @Res({ passthrough: true }) res: Response) {
-    const data = await this.authService.login(body);
-    this.setAuthCookies(res, data.accessToken, data.refreshToken);
-    return { message: 'Login successful' };
-  }
+  constructor(private authService: AuthService) {}
 
   @Post('request-otp')
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
-  requestOtp(@Body() body: RequestOtpDto) {
-    return this.authService.requestOtp(body.mobileNumber);
+  @HttpCode(HttpStatus.OK)
+  async requestOtp(@Body() body: { phone: string }) {
+    return await this.authService.sendOtp(body.phone);
   }
 
   @Post('verify-otp')
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
-  async verifyOtp(@Body() body: VerifyOtpDto, @Res({ passthrough: true }) res: Response) {
-    const data = await this.authService.verifyOtp(body.mobileNumber, body.otp);
-    this.setAuthCookies(res, data.accessToken, data.refreshToken);
-    return { message: 'OTP verification successful' };
+  @HttpCode(HttpStatus.OK)
+  async verifyOtp(@Body() body: { phone: string; code: string; name?: string }) {
+    return await this.authService.verifyOtp(body.phone, body.code, body.name);
   }
 
-  @Post('refresh')
-  async refresh(@Req() req: { headers: Record<string, string | undefined> }, @Res({ passthrough: true }) res: Response) {
-    const cookieHeader = req.headers.cookie ?? '';
-    const refreshToken = cookieHeader
-      .split(';')
-      .map((c) => c.trim())
-      .find((c) => c.startsWith('refreshToken='))
-      ?.split('=')[1];
-
-    const data = this.authService.refreshToken(refreshToken || '');
-    this.setAuthCookies(res, data.accessToken, data.refreshToken);
-    return { message: 'Token refreshed' };
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  async register(@Body() registerDto: RegisterDto) {
+    return await this.authService.register(registerDto);
   }
 
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  async login(@Body() loginDto: LoginDto) {
+    return await this.authService.login(loginDto);
+  }
+
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  async getProfile(@Request() req) {
+    return await this.authService.getProfile(req.user.id);
+  }
+
+  @Post('mark-test-taken')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async markTestTaken(@Request() req) {
+    return await this.authService.markTestTaken(req.user.id);
+  }
+
+  /**
+   * POST /api/auth/logout
+   * Server-side logout — invalidates the current JWT (best-effort logging)
+   * JWTs are stateless so we just confirm and let the client clear storage.
+   */
   @Post('logout')
-  logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('accessToken', { path: '/' });
-    res.clearCookie('refreshToken', { path: '/api/auth' });
-    return { message: 'Logged out' };
-  }
-
-  private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
-    const secure = process.env.NODE_ENV === 'production';
-    res.cookie('accessToken', accessToken, {
-      httpOnly: true,
-      secure,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 15 * 60 * 1000,
-    });
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure,
-      sameSite: 'strict',
-      path: '/api/auth',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async logout(@Request() req) {
+    // Log the logout event
+    console.log(`[AUTH] User ${req.user?.mobileNumber} logged out at ${new Date().toISOString()}`);
+    return { success: true, message: 'با موفقیت خارج شدید' };
   }
 }

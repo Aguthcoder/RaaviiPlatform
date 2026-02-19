@@ -1,76 +1,85 @@
-import { Type } from 'class-transformer';
 import {
-  IsBoolean,
-  IsDate,
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  IsString,
-  MaxLength,
-  Min,
+  IsString, IsNumber, IsDateString, IsBoolean, IsOptional, Min, IsArray,
 } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 
 export class CreateEventDto {
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(255)
-  title!: string;
+  title: string;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   description?: string;
 
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(100)
-  eventType!: string;
-
   @IsOptional()
+  event_type?: string;
+
   @IsString()
-  @MaxLength(100)
+  @IsOptional()
   category?: string;
 
-  @Type(() => Number)
   @IsNumber()
   @Min(1)
-  capacity!: number;
-
   @Type(() => Number)
-  @IsOptional()
+  capacity: number;
+
   @IsNumber()
-  @Min(0)
-  reservedCount?: number;
-
   @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  price!: number;
-
-  @Type(() => Date)
-  @IsDate()
-  startDate!: Date;
-
-  @Type(() => Date)
-  @IsDate()
-  endDate!: Date;
-
   @IsOptional()
+  price?: number;
+
+  // Support both snake_case and camelCase date inputs
+  @IsDateString()
+  @IsOptional()
+  start_date?: string;
+
+  @IsDateString()
+  @IsOptional()
+  startDate?: string;
+
+  @IsDateString()
+  @IsOptional()
+  end_date?: string;
+
+  @IsDateString()
+  @IsOptional()
+  endDate?: string;
+
   @IsString()
-  @MaxLength(255)
-  location?: string;
-
-  @Type(() => Boolean)
   @IsOptional()
-  @IsBoolean()
-  isOnline?: boolean;
+  location?: string; // محرمانه - فقط ۱۰ ساعت آخر
 
-  @IsOptional()
   @IsString()
-  @MaxLength(255)
-  instructorName?: string;
-
-  @Type(() => Boolean)
   @IsOptional()
+  city?: string; // عمومی
+
   @IsBoolean()
-  isActive?: boolean;
+  @IsOptional()
+  is_online?: boolean;
+
+  @IsString()
+  @IsOptional()
+  image_url?: string;
+
+  @IsArray()
+  @IsOptional()
+  tags?: string[];
+
+  @IsArray()
+  @IsOptional()
+  features?: string[];
+
+  @IsBoolean()
+  @IsOptional()
+  is_active?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean; // camelCase alias از فرانت
+
+  @IsString()
+  @IsOptional()
+  targetPersonalityTraits?: string;
 }
+

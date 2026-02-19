@@ -1,20 +1,52 @@
-import { Body, Controller, Get, Put, Req, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../common/jwt-auth.guard';
-import { UpdateProfileDto } from './dto/update-profile.dto';
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Body,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { IsString, IsOptional } from 'class-validator';
 
-@Controller('user')
+class UpdateUserDto {
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @IsString()
+  @IsOptional()
+  avatar?: string;
+}
+
+@Controller('api/users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private usersService: UsersService) {}
 
-  @Get('profile')
-  getProfile(@Req() req: { user: { sub: string } }) {
-    return this.usersService.getProfile(req.user.sub);
+  @Get('stats')
+  async getMyStats(@Req() req: any) {
+    return this.usersService.getUserStats(req.user.id);
   }
 
-  @Put('profile')
-  updateProfile(@Req() req: { user: { sub: string } }, @Body() body: UpdateProfileDto) {
-    return this.usersService.upsertProfile(req.user.sub, body);
+  /**
+   * PATCH /api/users/me
+   * Update current user's name / avatar
+   */
+  @Patch('me')
+  async updateMe(@Req() req: any, @Body() body: UpdateUserDto) {
+    return this.usersService.updateUser(req.user.id, body);
+  }
+
+  @Get()
+  async findAll() {
+    return await this.usersService.findAll();
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return await this.usersService.findById(id);
   }
 }

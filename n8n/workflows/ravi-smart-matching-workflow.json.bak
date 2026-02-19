@@ -1,0 +1,79 @@
+{
+  "name": "Ravi Smart Matching Pipeline",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "1. Ingestion (Webhook Trigger)",
+      "type": "n8n-nodes-base.webhook",
+      "parameters": {
+        "path": "ravi/event-pipeline",
+        "httpMethod": "POST"
+      }
+    },
+    {
+      "id": "normalize",
+      "name": "2. Normalization",
+      "type": "n8n-nodes-base.function",
+      "parameters": {
+        "functionCode": "return items.map(item => ({ json: { type: item.json.type, eventId: item.json.eventId, userId: item.json.userId || null, payload: item.json.payload || {} } }));"
+      }
+    },
+    {
+      "id": "enrich",
+      "name": "3. AI Enrichment",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "POST",
+        "url": "http://ai-engine:8001/enrich",
+        "jsonParameters": true
+      }
+    },
+    {
+      "id": "vectorize",
+      "name": "4. Vectorization",
+      "type": "n8n-nodes-base.function",
+      "parameters": {
+        "functionCode": "return items.map(item => ({ json: { ...item.json, vectorsReady: true } }));"
+      }
+    },
+    {
+      "id": "match",
+      "name": "5. Matching",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:4000/api/webhooks/n8n",
+        "jsonParameters": true,
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "x-ravi-n8n-secret",
+              "value": "={{$env.N8N_WEBHOOK_SECRET}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "action",
+      "name": "6. Action Execution",
+      "type": "n8n-nodes-base.switch",
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "value1": "={{$json.type}}",
+              "operation": "equal",
+              "value2": "before_event"
+            },
+            {
+              "value1": "={{$json.type}}",
+              "operation": "equal",
+              "value2": "after_event"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

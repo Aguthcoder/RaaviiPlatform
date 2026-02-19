@@ -1,44 +1,125 @@
-import { Column, Entity, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { ProfileEntity } from './profile.entity';
-import { UserTelegramLinkEntity } from './user-telegram-link.entity';
-import { EventReservationEntity } from './event-reservation.entity';
-import { SubscriptionEntity } from './subscription.entity';
-import { NotificationEntity } from './notification.entity';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToOne,
+  OneToMany,
+} from 'typeorm';
 
-export type SubscriptionPlan = 'free' | 'premium';
-
-@Entity({ name: 'users' })
-export class UserEntity {
+@Entity('users')
+export class User {
   @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  id: string;
 
   @Column({ unique: true, nullable: true })
-  email?: string | null;
+  email: string;
 
-  @Column({ name: 'mobile_number', unique: true, nullable: true, length: 20 })
-  mobileNumber?: string | null;
-
-  @Column({ name: 'password_hash', nullable: true })
+  @Column({ nullable: true, name: 'password_hash' })
   passwordHash?: string;
 
+  get password_hash(): string {
+    return this.passwordHash;
+  }
+
+  @Column({ unique: true, nullable: true, name: 'phone_number' })
+  mobileNumber?: string;
+
+  get phone_number(): string {
+    return this.mobileNumber;
+  }
+
   @Column({ nullable: true })
-  role?: string;
+  name?: string;
 
-  @Column({ name: 'subscription_plan', default: 'free' })
-  subscriptionPlan!: SubscriptionPlan;
+  @Column({ nullable: true })
+  avatar?: string;
 
-  @OneToOne(() => ProfileEntity, (profile) => profile.user)
-  profile?: ProfileEntity;
+  @Column({ default: false, name: 'is_test_taken' })
+  isTestTaken: boolean;
 
-  @OneToMany(() => UserTelegramLinkEntity, (link) => link.user)
-  telegramLinks?: UserTelegramLinkEntity[];
+  @Column({ type: 'bigint', unique: true, nullable: true })
+  telegram_id?: string;
 
-  @OneToMany(() => EventReservationEntity, (reservation) => reservation.user)
-  reservations?: EventReservationEntity[];
+  @Column({ nullable: true })
+  telegram_username?: string;
 
-  @OneToMany(() => SubscriptionEntity, (subscription) => subscription.user)
-  subscriptions?: SubscriptionEntity[];
+  @Column({ default: 'user' })
+  role: string;
 
-  @OneToMany(() => NotificationEntity, (notification) => notification.user)
-  notifications?: NotificationEntity[];
+  @Column({ default: 0 })
+  credits_balance: number;
+
+  @Column({ default: false, name: 'is_verified' })
+  isVerified: boolean;
+
+  get is_verified(): boolean {
+    return this.isVerified;
+  }
+
+  @Column({ default: false, name: 'is_banned' })
+  isBanned: boolean;
+
+  get is_banned(): boolean {
+    return this.isBanned;
+  }
+
+  @Column({ default: 0, name: 'warning_count' })
+  warningCount: number;
+
+  @Column({ type: 'text', nullable: true, name: 'ban_reason' })
+  banReason?: string;
+
+  @Column({ default: 'onboarding' })
+  current_fsm_state: string;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'last_login' })
+  lastLogin?: Date;
+
+  get last_login(): Date {
+    return this.lastLogin;
+  }
+
+  @Column({ default: 0, name: 'login_count' })
+  loginCount: number;
+
+  get login_count(): number {
+    return this.loginCount;
+  }
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  get created_at(): Date {
+    return this.createdAt;
+  }
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+
+  // ===== Relations =====
+  @OneToOne('Profile', 'user', { cascade: true })
+  profile: any;
+
+  @OneToMany('Booking', 'user')
+  bookings: any[];
+
+  @OneToMany('Payment', 'user')
+  payments: any[];
+
+  @OneToMany('Match', 'user')
+  initiated_matches: any[];
+
+  @OneToMany('Match', 'target_user')
+  received_matches: any[];
+
+  @OneToMany('Message', 'sender')
+  messages: any[];
+
+  @OneToMany('Feedback', 'user')
+  feedbacks_given: any[];
+
+  @OneToMany('Feedback', 'target')
+  feedbacks_received: any[];
 }

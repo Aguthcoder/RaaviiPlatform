@@ -1,54 +1,55 @@
-import { Column, Entity, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { EventReservationEntity } from './event-reservation.entity';
-import { TelegramGroupEntity } from './telegram-group.entity';
+﻿import {
+  Entity, PrimaryGeneratedColumn, Column,
+  CreateDateColumn, UpdateDateColumn
+} from 'typeorm';
 
-@Entity({ name: 'events' })
-export class EventEntity {
+@Entity('events')
+export class Event {
   @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  id: string;
 
   @Column()
-  title!: string;
+  title: string;
+
+  @Column('text', { nullable: true })
+  description: string;
 
   @Column({ nullable: true })
-  description?: string;
+  city: string;
 
-  @Column({ name: 'category', nullable: true })
-  category?: string;
+  @Column({ nullable: true })
+  exactLocation: string;
 
-  @Column({ name: 'event_type', nullable: true, length: 50 })
-  eventType?: string;
+  @Column({ nullable: true })
+  date: string;
 
-  @Column({ nullable: true, length: 100 })
-  city?: string;
+  @Column({ nullable: true })
+  time: string;
 
-  @Column({ name: 'target_personality_traits', type: 'text', array: true, nullable: true })
-  targetPersonalityTraits?: string[];
+  @Column({ type: 'int', default: 0 })
+  price: number;
 
-  @Column({ name: 'tags', type: 'text', array: true, nullable: true })
-  tags?: string[];
+  @Column({ type: 'int', default: 10 })
+  capacity: number;
 
-  @Column({ name: 'is_active', default: true })
-  isActive!: boolean;
+  @Column({ nullable: true })
+  image: string;
 
-  @Column({ name: 'capacity', type: 'int', default: 20 })
-  capacity!: number;
+  @Column({ nullable: true })
+  category: string;
 
-  @Column({ name: 'current_bookings', type: 'int', default: 0 })
-  reservedCount!: number;
+  @Column({ nullable: true })
+  hostName: string;
 
-  @Column({ name: 'price', type: 'decimal', precision: 10, scale: 2, default: 0 })
-  price!: number;
+  @Column({ nullable: true })
+  hostTitle: string;
 
-  @Column({ name: 'start_date', type: 'timestamp' })
-  startDate!: Date;
+  @Column('simple-array', { nullable: true })
+  learnings: string[];
 
-  @Column({ name: 'end_date', type: 'timestamp', nullable: true })
-  endDate?: Date;
+  @CreateDateColumn()
+  createdAt: Date;
 
-  @OneToMany(() => EventReservationEntity, (reservation) => reservation.event)
-  reservations?: EventReservationEntity[];
-
-  @OneToOne(() => TelegramGroupEntity, (telegramGroup) => telegramGroup.event)
-  telegramGroup?: TelegramGroupEntity;
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

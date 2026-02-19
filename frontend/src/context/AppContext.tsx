@@ -1,109 +1,181 @@
 "use client";
 
-import React, { createContext, useContext, useReducer, useEffect, ReactNode, Dispatch, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  useMemo,
+  ReactNode,
+} from "react";
 
-type State = {
+/* ================= TYPES ================= */
+
+export interface User {
+  id: string;
+  name?: string;
+  email?: string;
+  mobileNumber?: string;
+  avatar?: string;
+  role?: string;
+  isProfileComplete?: boolean;
+  isTestTaken?: boolean;
+  city?: string;
+}
+
+export interface AppState {
   isLoggedIn: boolean;
+  isLoading: boolean;
+  user: User | null;
+  city: string | null;
+  paymentSuccess: boolean;
   isProfileComplete: boolean;
   isTestTaken: boolean;
-  userCity: string | null;
-  paymentSuccess: boolean;
-};
+}
 
 type Action =
-  | { type: "LOGIN" }
+  | { type: "LOGIN"; payload: User }
   | { type: "LOGOUT" }
-  | { type: "COMPLETE_PROFILE" }
-  | { type: "TAKE_TEST" }
-  | { type: "SET_CITY"; payload: string | null }
-  | { type: "SET_PAYMENT_SUCCESS"; payload: boolean }
-  | { type: "LOAD_STATE"; payload: Partial<State> };
+  | { type: "SET_USER"; payload: User }
+  | { type: "SET_CITY"; payload: string }
+  | { type: "SET_LOADING"; payload: boolean }
+  | { type: "SET_PAYMENT_SUCCESS"; payload: boolean };
 
-const initialState: State = {
+/* ================= HELPERS ================= */
+
+function computeProfileComplete(user: User | null, city: string | null): boolean {
+  if (!user) return false;
+  const hasName = !!(user.name?.trim());
+  const hasCity = !!(city || user.city);
+  if (user.isProfileComplete === true) return true;
+  return hasName && hasCity;
+}
+
+/* ================= REDUCER ================= */
+
+const initialState: AppState = {
   isLoggedIn: false,
+  isLoading: true,
+  user: null,
+  city: null,
+  paymentSuccess: false,
   isProfileComplete: false,
   isTestTaken: false,
-  userCity: null,
-  paymentSuccess: false,
 };
 
-function appReducer(state: State, action: Action): State {
+function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case "LOGIN":
-      return { ...state, isLoggedIn: true };
-    case "LOGOUT":
+    case "LOGIN": {
+      const city = state.city || (action.payload as any).city || null;
       return {
         ...state,
-        isLoggedIn: false,
-        isProfileComplete: false,
-        isTestTaken: false,
-        userCity: null,
-        paymentSuccess: false,
+        isLoggedIn: true,
+        user: action.payload,
+        city,
+        isProfileComplete: computeProfileComplete(action.payload, city),
+        isTestTaken: !!(action.payload.isTestTaken),
       };
-    case "COMPLETE_PROFILE":
-      return { ...state, isProfileComplete: true };
-    case "TAKE_TEST":
-      return { ...state, isTestTaken: true };
+    }
+    case "LOGOUT":
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("city");
+        sessionStorage.clear();
+        document.cookie = "token=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      }
+      return { ...initialState, isLoading: false };
+    case "SET_USER": {
+      const city = state.city || (action.payload as any).city || null;
+      return {
+        ...state,
+        isLoggedIn: true,
+        user: action.payload,
+        city,
+        isProfileComplete: computeProfileComplete(action.payload, city),
+        isTestTaken: !!(action.payload.isTestTaken),
+      };
+    }
     case "SET_CITY":
-      return { ...state, userCity: action.payload };
+      return {
+        ...state,
+        city: action.payload,
+        isProfileComplete: computeProfileComplete(state.user, action.payload),
+      };
+    case "SET_LOADING":
+      return { ...state, isLoading: action.payload };
     case "SET_PAYMENT_SUCCESS":
       return { ...state, paymentSuccess: action.payload };
-    case "LOAD_STATE":
-      return { ...state, ...action.payload };
     default:
       return state;
   }
 }
 
-type AppContextType = {
-  state: State;
-  dispatch: Dispatch<Action>;
-  hydrated: boolean;
-};
+/* ================= CONTEXT ================= */
 
-const AppContext = createContext<AppContextType | undefined>(undefined);
+interface AppContextType {
+  state: AppState;
+  dispatch?: React.Dispatch<Action>;
+  isLoggedIn: boolean;
+  isLoading: boolean;
+  user: User | null;
+  login: (user: User, token: string) => void;
+  logout: () => void;
+  setUser: (user: User) => void;
+  setCity: (city: string) => void;
+}
 
-export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(appReducer, initialState);
-  const [hydrated, setHydrated] = useState(false);
+const AppContext = createContext<AppContextType | null>(null);
+
+/* ================= PROVIDER ================= */
+
+export default function AppProvider({ children }: { children: ReactNode }) {
+  const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
     try {
-      const savedState = localStorage.getItem("raavi_app_state");
-      if (savedState) {
-        dispatch({ type: "LOAD_STATE", payload: JSON.parse(savedState) });
+      const token = localStorage.getItem("token");
+      const savedUser = localStorage.getItem("user");
+      const savedCity = localStorage.getItem("city");
+      if (token && savedUser) {
+        const user = JSON.parse(savedUser);
+        dispatch({ type: "SET_USER", payload: user });
+        if (savedCity) dispatch({ type: "SET_CITY", payload: savedCity });
       }
-    } catch (error) {
-      console.error("Error loading state from localStorage:", error);
     } finally {
-      setHydrated(true);
+      dispatch({ type: "SET_LOADING", payload: false });
     }
   }, []);
 
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      localStorage.setItem("raavi_app_state", JSON.stringify(state));
-    } catch (error) {
-      console.error("Error saving state to localStorage:", error);
-    }
-  }, [state, hydrated]);
+  const value = useMemo<AppContextType>(
+    () => ({
+      state,
+      dispatch,
+      user: state.user,
+      isLoggedIn: state.isLoggedIn,
+      isLoading: state.isLoading,
+      login: (user, token) => {
+        localStorage.setItem("token", token);
+        localStorage.setItem("user", JSON.stringify(user));
+        dispatch({ type: "LOGIN", payload: user });
+      },
+      logout: () => dispatch({ type: "LOGOUT" }),
+      setUser: (user) => dispatch({ type: "SET_USER", payload: user }),
+      setCity: (city) => {
+        localStorage.setItem("city", city);
+        dispatch({ type: "SET_CITY", payload: city });
+      },
+    }),
+    [state],
+  );
 
-  return <AppContext.Provider value={{ state, dispatch, hydrated }}>{children}</AppContext.Provider>;
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
-export function useAppContext() {
+/* ================= HOOK ================= */
+
+export function useApp() {
   const context = useContext(AppContext);
-  if (!context) throw new Error("useAppContext must be used within an AppProvider");
+  if (!context) throw new Error("useApp must be used within AppProvider");
   return context;
 }
-
-export const appActions = {
-  login: () => ({ type: "LOGIN" as const }),
-  logout: () => ({ type: "LOGOUT" as const }),
-  completeProfile: () => ({ type: "COMPLETE_PROFILE" as const }),
-  takeTest: () => ({ type: "TAKE_TEST" as const }),
-  setCity: (city: string | null) => ({ type: "SET_CITY" as const, payload: city }),
-  setPaymentSuccess: (success: boolean) => ({ type: "SET_PAYMENT_SUCCESS" as const, payload: success }),
-  loadState: (state: Partial<State>) => ({ type: "LOAD_STATE" as const, payload: state }),
-};

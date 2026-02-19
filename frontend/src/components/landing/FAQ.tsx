@@ -45,7 +45,7 @@ export default function FAQ() {
           <span className="text-orange-500 font-bold text-xs md:text-sm tracking-widest uppercase">
             سوالات متداول
           </span>
-          <h2 className="text-2xl md:text-3xl lg:text-4xl font-black text-white mt-2 mb-4">
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 mt-2 mb-4">
             پاسخ به رایج‌ترین پرسش‌ها
           </h2>
         </div>

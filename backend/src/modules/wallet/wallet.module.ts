@@ -1,14 +1,18 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PaymentEntity } from '../../database/entities/payment.entity';
-import { JwtAuthGuard } from '../common/jwt-auth.guard';
 import { WalletController } from './wallet.controller';
 import { WalletService } from './wallet.service';
+import { User } from '../users/entities/user.entity';
+import { Payment } from '../payments/entities/payment.entity';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [JwtModule.register({}), TypeOrmModule.forFeature([PaymentEntity])],
-  providers: [WalletService, JwtAuthGuard],
+  imports: [
+    TypeOrmModule.forFeature([User, Payment]),
+    AuthModule,
+  ],
   controllers: [WalletController],
+  providers: [WalletService],
+  exports: [WalletService],
 })
 export class WalletModule {}

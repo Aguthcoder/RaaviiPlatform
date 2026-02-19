@@ -1,86 +1,89 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ProfileEntity } from '../../database/entities/profile.entity';
-import { UpdateProfileDto } from './dto/update-profile.dto';
-
-export interface UserProfileView {
-  avatarUrl: string | null;
-  bio: string | null;
-  interests: string[];
-  personalityType: string | null;
-  personalityTraits: string[];
-  preferredEventTypes: string[];
-  city: string | null;
-  age: number | null;
-  gender: string | null;
-  education: string | null;
-}
+import { User } from '../../database/entities/user.entity';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectRepository(ProfileEntity)
-    private readonly profileRepository: Repository<ProfileEntity>,
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
   ) {}
 
-  async getUserInterests(userId: string): Promise<string[]> {
-    const profile = await this.profileRepository.findOne({ where: { userId } });
-    return profile?.interests ?? [];
+  async create(data: { email?: string; mobileNumber?: string; password?: string }): Promise<User> {
+    if (data.email) {
+      const existing = await this.findByEmail(data.email);
+      if (existing) throw new ConflictException('این ایمیل قبلاً ثبت شده است');
+    }
+
+    const passwordHash = data.password ? await bcrypt.hash(data.password, 10) : undefined;
+    const user = this.usersRepository.create({
+      email: data.email,
+      mobileNumber: data.mobileNumber,
+      passwordHash,
+    });
+
+    return await this.usersRepository.save(user);
   }
 
-  async getProfile(userId: string): Promise<UserProfileView> {
-    const profile = await this.profileRepository.findOne({ where: { userId } });
+  async findAll(): Promise<User[]> {
+    return await this.usersRepository.find();
+  }
 
+  async findById(id: string): Promise<User> {
+    const user = await this.usersRepository.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('کاربر پیدا نشد');
+    return user;
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    return await this.usersRepository.findOne({ where: { email } });
+  }
+
+  async findByPhone(phone: string): Promise<User | null> {
+    return await this.usersRepository.findOne({ where: { mobileNumber: phone } });
+  }
+
+  async updateLastLogin(id: string): Promise<void> {
+    const user = await this.findById(id);
+    user.lastLogin = new Date();
+    user.loginCount = (user.loginCount || 0) + 1;
+    await this.usersRepository.save(user);
+  }
+
+  async getUserStats(userId: string) {
+    const user = await this.findById(userId);
     return {
-      avatarUrl: profile?.avatarUrl ?? null,
-      bio: profile?.bio ?? null,
-      interests: profile?.interests ?? [],
-      personalityType: profile?.personalityType ?? null,
-      personalityTraits: profile?.personalityTraits ?? [],
-      preferredEventTypes: profile?.preferredEventTypes ?? [],
-      city: profile?.city ?? null,
-      age: profile?.age ?? null,
-      gender: profile?.gender ?? null,
-      education: profile?.education ?? null,
+      id: user.id,
+      name: user.name || '',
+      mobileNumber: user.mobileNumber,
+      loginCount: user.loginCount || 0,
+      lastLogin: user.lastLogin,
+      isTestTaken: user.isTestTaken || false,
+      createdAt: user.createdAt,
     };
   }
 
-  async upsertProfile(userId: string, payload: UpdateProfileDto) {
-    const existingProfile = await this.profileRepository.findOne({ where: { userId } });
-
-    const profile = this.profileRepository.create({
-      ...(existingProfile ?? {}),
-      userId,
-      avatarUrl: payload.avatarUrl,
-      bio: payload.bio,
-      interests: payload.interests?.map((interest) => interest.trim()).filter(Boolean),
-      personalityType: payload.personalityType?.trim().toLowerCase(),
-      personalityTraits: payload.personalityTraits?.map((trait) => trait.trim().toLowerCase()).filter(Boolean),
-      preferredEventTypes: payload.preferredEventTypes
-        ?.map((eventType) => eventType.trim().toLowerCase())
-        .filter(Boolean),
-      city: payload.city,
-      age: payload.age,
-      gender: payload.gender?.toLowerCase(),
-      education: payload.education,
-    });
-
-    const savedProfile = await this.profileRepository.save(profile);
-
+  /**
+   * PATCH /api/users/me — update user name / avatar
+   * Fixes "profile data not saving in dev mode" bug by persisting name to DB
+   */
+  async updateUser(id: string, data: { name?: string; avatar?: string }): Promise<any> {
+    const user = await this.findById(id);
+    if (data.name !== undefined && data.name.trim()) {
+      user.name = data.name.trim();
+    }
+    if (data.avatar !== undefined) {
+      user.avatar = data.avatar;
+    }
+    const saved = await this.usersRepository.save(user);
+    console.log(`[USERS] User ${id} updated: name=${saved.name}`);
     return {
-      id: savedProfile.id,
-      avatarUrl: savedProfile.avatarUrl ?? null,
-      bio: savedProfile.bio ?? null,
-      interests: savedProfile.interests ?? [],
-      personalityType: savedProfile.personalityType ?? null,
-      personalityTraits: savedProfile.personalityTraits ?? [],
-      preferredEventTypes: savedProfile.preferredEventTypes ?? [],
-      city: savedProfile.city ?? null,
-      age: savedProfile.age ?? null,
-      gender: savedProfile.gender ?? null,
-      education: savedProfile.education ?? null,
-      usage: 'matching_only',
+      id: saved.id,
+      name: saved.name,
+      mobileNumber: saved.mobileNumber,
+      avatar: saved.avatar,
     };
   }
 }
