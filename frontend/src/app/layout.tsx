@@ -7,6 +7,7 @@ import { AnimatedBackground } from "@/components/ui/animated-background";
 import BottomNav from "@/components/BottomNav";
 import TopHeader from "@/components/TopHeader";
 import { ProfileGuard } from "@/components/ProfileGuard";
+import AIChatWidget from "@/components/AIChatWidget";
 
 const vazirmatn = localFont({
   src: "./fonts/Vazirmatn-Regular.woff2",
@@ -37,6 +38,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
 
           <BottomNav />
+
+          {/* 🤖 دستیار هوشمند AI - فلوتینگ روی تمام صفحات */}
+          <AIChatWidget />
         </AppProvider>
       </body>
     </html>

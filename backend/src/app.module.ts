@@ -14,6 +14,12 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { UploadModule } from './modules/upload/upload.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+
+// ── لایه‌های هوشمندسازی ─────────────────────────────────────────────
+import { MatchingModule } from './modules/matching/matching.module';
+import { AiContentModule } from './modules/ai-content/ai-content.module';
+import { BotModule } from './modules/bot/bot.module';
 
 @Module({
   imports: [
@@ -29,15 +35,30 @@ import { UploadModule } from './modules/upload/upload.module';
         password: cs.get<string>('DB_PASSWORD'),
         database: cs.get<string>('DB_DATABASE'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: cs.get('NODE_ENV') !== 'production',
+        synchronize: true,
         retryAttempts: 5,
         retryDelay: 3000,
         logging: cs.get('NODE_ENV') !== 'production',
       }),
     }),
-    AuthModule, UsersModule, BookingsModule, EventsModule,
-    ProfilesModule, WalletModule, TestResultsModule, GamesModule,
-    AttendanceModule, AdminModule, PaymentsModule, UploadModule,
+    // ── ماژول‌های اصلی ─────────────────────────────────────────────
+    AuthModule,
+    UsersModule,
+    BookingsModule,
+    EventsModule,
+    ProfilesModule,
+    WalletModule,
+    TestResultsModule,
+    GamesModule,
+    AttendanceModule,
+    AdminModule,
+    PaymentsModule,
+    UploadModule,
+    NotificationsModule,
+    // ── ماژول‌های هوشمندسازی ───────────────────────────────────────
+    MatchingModule,
+    AiContentModule,
+    BotModule,
   ],
 })
 export class AppModule {}

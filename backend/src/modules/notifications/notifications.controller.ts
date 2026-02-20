@@ -1,11 +1,10 @@
-﻿import {
-  Controller, Get, Patch, Param,
-  UseGuards, Request
-} from '@nestjs/common';
+﻿import { Controller, Get, Patch, Param, UseGuards, Request } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@Controller('notifications')
+// ✅ اصلاح شد: از 'notifications' به 'api/notifications'
+// قبلاً روی /notifications بود که با پروکسی Next.js هماهنگ نبود
+@Controller('api/notifications')
 @UseGuards(JwtAuthGuard)
 export class NotificationsController {
   constructor(private readonly svc: NotificationsService) {}

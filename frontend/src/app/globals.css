@@ -209,56 +209,56 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 24px;
 }
+/* R A V I - مثل اسنپ */
 .preloader-logo {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.preloader-logo span {
   font-weight: 900;
-  font-size: clamp(28px, 6vw, 52px);
-  letter-spacing: 0.25em;
-  background: linear-gradient(90deg, #f97316 0%, #f59e0b 50%, #f97316 100%);
+  font-size: clamp(32px, 8vw, 56px);
+  background: linear-gradient(135deg, #FF6B00 0%, #FF8C00 50%, #FF6B00 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   background-size: 200% auto;
-  animation: raavi-shimmer 1.5s linear infinite;
+  animation: raavi-shimmer 1.5s linear infinite, raavi-letter-in 0.5s ease both;
+}
+.preloader-logo span:nth-child(1) { animation-delay: 0ms, 0ms; }
+.preloader-logo span:nth-child(2) { animation-delay: 0ms, 80ms; }
+.preloader-logo span:nth-child(3) { animation-delay: 0ms, 160ms; }
+.preloader-logo span:nth-child(4) { animation-delay: 0ms, 240ms; }
+
+@keyframes raavi-letter-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 @keyframes raavi-shimmer {
-  to {
-    background-position: 200% center;
-  }
+  to { background-position: 200% center; }
 }
-.preloader-dots {
-  display: flex;
-  gap: 8px;
-}
-.dot {
-  width: 8px;
-  height: 8px;
+/* نوار پیشرفت نارنجی - مثل اسنپ */
+.preloader-bar {
+  width: 140px;
+  height: 4px;
   border-radius: 999px;
-  background: #f97316;
-  opacity: 0.6;
-  animation: dot-bounce 900ms ease-in-out infinite;
+  background: rgba(255, 107, 0, 0.15);
+  overflow: hidden;
 }
-.dot-1 {
-  animation-delay: 0ms;
+.preloader-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #FF6B00, #FF8C00);
+  animation: preloader-progress 1.8s ease-in-out infinite;
 }
-.dot-2 {
-  animation-delay: 150ms;
+@keyframes preloader-progress {
+  0% { width: 0%; transform: translateX(0); }
+  50% { width: 70%; }
+  100% { width: 100%; transform: translateX(0); }
 }
-.dot-3 {
-  animation-delay: 300ms;
-}
-@keyframes dot-bounce {
-  0%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.6;
-  }
-  50% {
-    transform: translateY(-6px);
-    opacity: 1;
-  }
-}
+/* --- حذف dot styles قدیمی --- */
 /* src/app/globals.css */
 
 /* ... کدهای قبلی ... */

@@ -1,18 +1,25 @@
 import {
-  Controller, Get, Post, Patch, Delete, Body, Param,
-  Query, UseGuards, Req, ForbiddenException, HttpCode, HttpStatus,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+  ForbiddenException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtGuard } from '../auth/guards/optional-jwt.guard';
 
-// فقط سه ادمین مشخص‌شده
-export const ADMIN_PHONES = [
-  '09929564895', // +98 992 956 4895
-  '09356815523', // +98 935 681 5523
-  '09933830958', // +98 993 383 0958
-];
+// تمام ادمین‌های سیستم (باید با admin.controller.ts هماهنگ باشه)
+export const ADMIN_PHONES = ['09356815523', '09929564895', '09933830958', '09055508305', '09053241505'];
 
 export function isAdminUser(user: any): boolean {
   if (!user) return false;

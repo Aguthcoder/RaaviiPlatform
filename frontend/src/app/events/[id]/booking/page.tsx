@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useApp } from "@/context/AppContext";
 import {
   ArrowRight, MapPin, Clock, Users, Lock,
-  AlertCircle, CheckCircle2, CreditCard, Sparkles, Shield,
+  AlertCircle, CheckCircle2, CreditCard, Sparkles, Shield, Home, Navigation,
 } from "lucide-react";
 import AnimatedBackground from "@/components/AnimatedBackground";
 
@@ -23,15 +23,16 @@ const MOCK_EVENTS: Record<string, any> = {
   "ev-15": { id: "ev-15", title: "فوتبال دوستانه", price: 30000, capacity: 14, current_bookings: 8, city: "تهران", start_date: "2024-02-24T09:00:00" },
 };
 
-function formatPrice(p: number) {
-  return Number(p).toLocaleString("fa-IR") + " تومان";
-}
+function formatPrice(p: number) { return Number(p).toLocaleString("fa-IR") + " تومان"; }
 function formatDate(d: string) {
   try { return new Date(d).toLocaleDateString("fa-IR", { weekday: "long", month: "long", day: "numeric" }); } catch { return d; }
 }
 function formatTime(d: string) {
   try { return new Date(d).toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" }); } catch { return ""; }
 }
+
+// اولویت مکانی کاربر
+type LocationPreference = "neighborhood" | "citywide";
 
 export default function BookingPage() {
   const params = useParams<{ id: string }>();
@@ -42,7 +43,10 @@ export default function BookingPage() {
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
   const [error, setError] = useState("");
-  const [step, setStep] = useState<"details" | "confirm" | "processing">("details");
+  const [step, setStep] = useState<"details" | "location" | "confirm" | "processing">("details");
+
+  // اولویت مکانی - الگوریتم مچینگ این را در نظر می‌گیرد
+  const [locationPref, setLocationPref] = useState<LocationPreference>("neighborhood");
 
   useEffect(() => {
     if (MOCK_EVENTS[id]) { setEvent(MOCK_EVENTS[id]); setLoading(false); return; }
@@ -70,7 +74,11 @@ export default function BookingPage() {
       const res = await fetch(`${API_URL}/api/bookings`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ eventId: id, callbackUrl }),
+        body: JSON.stringify({
+          eventId: id,
+          callbackUrl,
+          locationPreference: locationPref, // ارسال اولویت مکانی به الگوریتم
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "خطا در ثبت رزرو");
@@ -139,9 +147,82 @@ export default function BookingPage() {
 
           <div className="mt-3 rounded-xl p-3 flex items-center gap-2" style={{ background: "rgba(255,107,0,0.08)", border: "1px dashed rgba(255,107,0,0.2)" }}>
             <Lock size={12} className="text-orange-400 flex-shrink-0" />
-            <p className="text-[11px] text-slate-400">آدرس دقیق ۱۰ ساعت قبل از شروع در داشبورد نمایش داده می‌شود</p>
+            <p className="text-[11px] text-slate-400">آدرس دقیق ۲۴ ساعت قبل از شروع در داشبورد نمایش داده می‌شود</p>
           </div>
         </div>
+
+        {/* ─── انتخاب اولویت مکانی (لایه ۳ مچینگ) ─── */}
+        {step !== "processing" && (
+          <div className="rounded-3xl p-5 mb-4" style={CARD}>
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin size={16} className="text-orange-400" />
+              <h2 className="font-bold text-white text-sm">اولویت مکانی شما</h2>
+            </div>
+            <p className="text-xs text-slate-400 mb-4">
+              الگوریتم هوشمند راوی از این انتخاب برای گروه‌بندی مناسب‌تر استفاده می‌کند
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* گزینه ۱: محله کاربر */}
+              <button
+                onClick={() => setLocationPref("neighborhood")}
+                className={`p-4 rounded-2xl text-right transition-all ${
+                  locationPref === "neighborhood"
+                    ? "border-2 border-orange-500"
+                    : "border border-white/10 hover:border-white/20"
+                }`}
+                style={{
+                  background: locationPref === "neighborhood"
+                    ? "rgba(255,107,0,0.15)"
+                    : "rgba(255,255,255,0.03)",
+                }}
+              >
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-2"
+                  style={{ background: locationPref === "neighborhood" ? "rgba(255,107,0,0.25)" : "rgba(255,255,255,0.08)" }}>
+                  <Home size={16} className={locationPref === "neighborhood" ? "text-orange-400" : "text-slate-500"} />
+                </div>
+                <div className={`text-sm font-bold mb-1 ${locationPref === "neighborhood" ? "text-white" : "text-slate-400"}`}>
+                  محله من
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  اولویت با نزدیک‌ترین مکان
+                </div>
+                {locationPref === "neighborhood" && (
+                  <CheckCircle2 size={14} className="text-orange-400 mt-2" />
+                )}
+              </button>
+
+              {/* گزینه ۲: سراسر شهر */}
+              <button
+                onClick={() => setLocationPref("citywide")}
+                className={`p-4 rounded-2xl text-right transition-all ${
+                  locationPref === "citywide"
+                    ? "border-2 border-orange-500"
+                    : "border border-white/10 hover:border-white/20"
+                }`}
+                style={{
+                  background: locationPref === "citywide"
+                    ? "rgba(255,107,0,0.15)"
+                    : "rgba(255,255,255,0.03)",
+                }}
+              >
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-2"
+                  style={{ background: locationPref === "citywide" ? "rgba(255,107,0,0.25)" : "rgba(255,255,255,0.08)" }}>
+                  <Navigation size={16} className={locationPref === "citywide" ? "text-orange-400" : "text-slate-500"} />
+                </div>
+                <div className={`text-sm font-bold mb-1 ${locationPref === "citywide" ? "text-white" : "text-slate-400"}`}>
+                  سراسر شهر
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  مکان اهمیتی ندارد
+                </div>
+                {locationPref === "citywide" && (
+                  <CheckCircle2 size={14} className="text-orange-400 mt-2" />
+                )}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Payment Card */}
         <div className="rounded-3xl p-5 mb-4" style={CARD}>
@@ -189,6 +270,13 @@ export default function BookingPage() {
               </button>
             ) : (
               <div className="space-y-3">
+                {/* نمایش اولویت انتخاب‌شده */}
+                <div className="rounded-xl p-3 flex items-center gap-2" style={{ background: "rgba(255,107,0,0.08)", border: "1px dashed rgba(255,107,0,0.2)" }}>
+                  {locationPref === "neighborhood" ? <Home size={14} className="text-orange-400" /> : <Navigation size={14} className="text-orange-400" />}
+                  <span className="text-xs text-slate-300">
+                    اولویت مکانی: {locationPref === "neighborhood" ? "محله من" : "سراسر شهر"}
+                  </span>
+                </div>
                 <p className="text-center text-sm font-bold text-white">آیا از رزرو این همنشینی مطمئن هستید؟</p>
                 <p className="text-center text-xs text-slate-500">پس از کلیک به درگاه پرداخت {formatPrice(price)} منتقل می‌شوید</p>
                 <button onClick={handleReserve} disabled={booking}

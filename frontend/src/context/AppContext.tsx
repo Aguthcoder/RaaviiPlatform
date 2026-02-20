@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   createContext,
@@ -43,25 +43,77 @@ type Action =
 
 /* ================= HELPERS ================= */
 
-function computeProfileComplete(user: User | null, city: string | null): boolean {
+function computeProfileComplete(
+  user: User | null,
+  city: string | null,
+): boolean {
   if (!user) return false;
-  const hasName = !!(user.name?.trim());
+  const hasName = !!user.name?.trim();
   const hasCity = !!(city || user.city);
   if (user.isProfileComplete === true) return true;
   return hasName && hasCity;
 }
 
-/* ================= REDUCER ================= */
+/**
+ * ✅ خوندن synchronous از localStorage قبل از اولین render
+ * این تابع فقط در browser اجرا می‌شه (SSR safe)
+ * باعث می‌شه state اولیه درست باشه و flash نداشته باشیم
+ */
+function readInitialStateFromStorage(): Pick<
+  AppState,
+  "user" | "city" | "isLoggedIn" | "isProfileComplete" | "isTestTaken"
+> {
+  if (typeof window === "undefined") {
+    return {
+      user: null,
+      city: null,
+      isLoggedIn: false,
+      isProfileComplete: false,
+      isTestTaken: false,
+    };
+  }
+  try {
+    const token = localStorage.getItem("token");
+    const savedUser = localStorage.getItem("user");
+    const savedCity = localStorage.getItem("city");
+    if (token && savedUser) {
+      const user = JSON.parse(savedUser) as User;
+      const city = savedCity || user.city || null;
+      return {
+        user,
+        city,
+        isLoggedIn: true,
+        isProfileComplete: computeProfileComplete(user, city),
+        isTestTaken: !!user.isTestTaken,
+      };
+    }
+  } catch {}
+  return {
+    user: null,
+    city: null,
+    isLoggedIn: false,
+    isProfileComplete: false,
+    isTestTaken: false,
+  };
+}
+
+/* ================= INITIAL STATE ================= */
+
+// ✅ state اولیه از localStorage خونده می‌شه — نه null
+const storedState = readInitialStateFromStorage();
 
 const initialState: AppState = {
-  isLoggedIn: false,
-  isLoading: true,
-  user: null,
-  city: null,
+  isLoggedIn: storedState.isLoggedIn,
+  // اگه user داریم دیگه نیازی به loading نیست
+  isLoading: !storedState.isLoggedIn,
+  user: storedState.user,
+  city: storedState.city,
   paymentSuccess: false,
-  isProfileComplete: false,
-  isTestTaken: false,
+  isProfileComplete: storedState.isProfileComplete,
+  isTestTaken: storedState.isTestTaken,
 };
+
+/* ================= REDUCER ================= */
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -70,10 +122,11 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         isLoggedIn: true,
+        isLoading: false,
         user: action.payload,
         city,
         isProfileComplete: computeProfileComplete(action.payload, city),
-        isTestTaken: !!(action.payload.isTestTaken),
+        isTestTaken: !!action.payload.isTestTaken,
       };
     }
     case "LOGOUT":
@@ -84,16 +137,25 @@ function reducer(state: AppState, action: Action): AppState {
         sessionStorage.clear();
         document.cookie = "token=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
       }
-      return { ...initialState, isLoading: false };
+      return {
+        isLoggedIn: false,
+        isLoading: false,
+        user: null,
+        city: null,
+        paymentSuccess: false,
+        isProfileComplete: false,
+        isTestTaken: false,
+      };
     case "SET_USER": {
       const city = state.city || (action.payload as any).city || null;
       return {
         ...state,
         isLoggedIn: true,
+        isLoading: false,
         user: action.payload,
         city,
         isProfileComplete: computeProfileComplete(action.payload, city),
-        isTestTaken: !!(action.payload.isTestTaken),
+        isTestTaken: !!action.payload.isTestTaken,
       };
     }
     case "SET_CITY":
@@ -133,18 +195,19 @@ export default function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
+    // اگه user از storage خونده شده، loading رو false کن
+    dispatch({ type: "SET_LOADING", payload: false });
+
+    // ✅ اگه user لاگین بود، localStorage رو refresh کن
+    // (مثلاً اگه token جدید گرفته شده)
     try {
       const token = localStorage.getItem("token");
       const savedUser = localStorage.getItem("user");
-      const savedCity = localStorage.getItem("city");
-      if (token && savedUser) {
+      if (token && savedUser && !state.isLoggedIn) {
         const user = JSON.parse(savedUser);
         dispatch({ type: "SET_USER", payload: user });
-        if (savedCity) dispatch({ type: "SET_CITY", payload: savedCity });
       }
-    } finally {
-      dispatch({ type: "SET_LOADING", payload: false });
-    }
+    } catch {}
   }, []);
 
   const value = useMemo<AppContextType>(
@@ -160,7 +223,10 @@ export default function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: "LOGIN", payload: user });
       },
       logout: () => dispatch({ type: "LOGOUT" }),
-      setUser: (user) => dispatch({ type: "SET_USER", payload: user }),
+      setUser: (user) => {
+        localStorage.setItem("user", JSON.stringify(user));
+        dispatch({ type: "SET_USER", payload: user });
+      },
       setCity: (city) => {
         localStorage.setItem("city", city);
         dispatch({ type: "SET_CITY", payload: city });
