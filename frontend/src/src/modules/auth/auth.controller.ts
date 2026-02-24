@@ -14,6 +14,13 @@ export class AuthController {
     return await this.authService.sendOtp(body.phone);
   }
 
+
+  @Post('check-phone')
+  @HttpCode(HttpStatus.OK)
+  async checkPhone(@Body() body: { phone: string }) {
+    return await this.authService.checkPhoneExists(body.phone);
+  }
+
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
   async verifyOtp(@Body() body: { phone: string; code: string; name?: string }) {

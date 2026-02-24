@@ -15,7 +15,6 @@ import {
   CalendarCheck,
   Clock,
   Users,
-  Lock,
 } from "lucide-react";
 
 // ─── کتگوری‌ها ───────────────────────────────────────────────────
@@ -433,6 +432,31 @@ function RatingPopup({
           </>
         )}
       </div>
+
+      {waitingCategory && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => setWaitingCategory(null)}
+          style={{ background: "rgba(15,23,42,0.55)", backdropFilter: "blur(2px)" }}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl p-5"
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "#fff", border: "1px solid rgba(15,23,42,0.08)" }}
+          >
+            <h3 className="text-slate-900 font-black text-base mb-2">به‌زودی فعال می‌شود</h3>
+            <p className="text-sm text-slate-600 leading-7">
+              ۱۵ نفر مانده تا شروع اولین همنشینی در دسته‌بندی «{waitingCategory}».
+            </p>
+            <button
+              className="mt-4 w-full bg-orange-500 text-white font-bold rounded-xl py-2.5"
+              onClick={() => setWaitingCategory(null)}
+            >
+              متوجه شدم
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -455,6 +479,7 @@ export default function EventsPage() {
     eventTitle: string;
     participants: { userId: string; name: string }[];
   } | null>(null);
+  const [waitingCategory, setWaitingCategory] = useState<string | null>(null);
 
   const userCity =
     state.city ||
@@ -641,6 +666,13 @@ export default function EventsPage() {
   ];
 
   const activeCat = CATEGORIES.find((c) => c.id === activeCategory);
+  const orderedCategories = [...CATEGORIES].sort((a, b) => {
+    if (a.id === "hamneshin") return -1;
+    if (b.id === "hamneshin") return 1;
+    if (a.id === "hambazi") return 1;
+    if (b.id === "hambazi") return -1;
+    return 0;
+  });
 
   return (
     <div
@@ -800,25 +832,22 @@ export default function EventsPage() {
 
             {/* گرید کتگوری‌ها */}
             <div className="grid grid-cols-3 gap-2.5 mb-6">
-              {CATEGORIES.map((cat) => {
+              {orderedCategories.map((cat) => {
                 const isA = activeCategory === cat.id;
                 const catEvents = events.filter((e) => e.category === cat.id);
-                const isActive =
-                  !userCity || activeCategoriesInCity.includes(cat.id);
+                const hasCityEvents = !userCity || activeCategoriesInCity.includes(cat.id);
 
                 return (
                   <button
                     key={cat.id}
                     onClick={() => {
-                      if (!isActive) return;
-                      setActiveCategory(isA ? null : cat.id);
+                      if (!hasCityEvents) {
+                        setWaitingCategory(cat.title);
+                        return;
+                      }
+                      router.push(`/events/category/${cat.id}`);
                     }}
-                    disabled={!isActive}
-                    className={`relative rounded-2xl overflow-hidden aspect-square flex flex-col items-end justify-end transition-all duration-200 shadow-sm ${
-                      isActive
-                        ? "hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
-                        : "cursor-not-allowed"
-                    } ${isA ? "ring-4 ring-orange-500 ring-offset-1 scale-[1.03]" : ""}`}
+                    className={`relative rounded-2xl overflow-hidden aspect-square flex flex-col items-end justify-end transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 cursor-pointer ${isA ? "ring-4 ring-orange-500 ring-offset-1 scale-[1.03]" : ""}`}
                   >
                     {/* تصویر کتگوری */}
                     <img
@@ -828,34 +857,16 @@ export default function EventsPage() {
                     />
 
                     {/* اگر فعال - اورلی سورمه‌ای */}
-                    {isActive && (
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#0d2238]/80 via-[#1a3a5c]/20 to-transparent" />
-                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0d2238]/80 via-[#1a3a5c]/20 to-transparent" />
 
-                    {/* اگر غیرفعال - اورلی خاکستری */}
-                    {!isActive && (
-                      <div
-                        className="absolute inset-0 flex flex-col items-center justify-center z-10"
-                        style={{
-                          background: "rgba(120,120,120,0.65)",
-                          backdropFilter: "blur(3px)",
-                        }}
-                      >
-                        <Lock size={18} className="text-white mb-1" />
-                        <span className="text-white text-[9px] font-bold text-center px-1">
-                          در {userCity} فعال نیست
-                        </span>
-                      </div>
-                    )}
-
-                    {isActive && catEvents.length > 0 && (
+                    {hasCityEvents && catEvents.length > 0 && (
                       <span className="absolute top-1.5 right-1.5 bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full z-10 shadow">
                         {catEvents.length}
                       </span>
                     )}
 
                     <p
-                      className={`relative z-10 text-white text-[11px] font-black p-2 drop-shadow-md w-full text-right ${!isActive ? "opacity-50" : ""}`}
+                      className="relative z-10 text-white text-[11px] font-black p-2 drop-shadow-md w-full text-right"
                     >
                       {cat.title}
                     </p>
@@ -994,6 +1005,31 @@ export default function EventsPage() {
           </>
         )}
       </div>
+
+      {waitingCategory && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => setWaitingCategory(null)}
+          style={{ background: "rgba(15,23,42,0.55)", backdropFilter: "blur(2px)" }}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl p-5"
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "#fff", border: "1px solid rgba(15,23,42,0.08)" }}
+          >
+            <h3 className="text-slate-900 font-black text-base mb-2">به‌زودی فعال می‌شود</h3>
+            <p className="text-sm text-slate-600 leading-7">
+              ۱۵ نفر مانده تا شروع اولین همنشینی در دسته‌بندی «{waitingCategory}».
+            </p>
+            <button
+              className="mt-4 w-full bg-orange-500 text-white font-bold rounded-xl py-2.5"
+              onClick={() => setWaitingCategory(null)}
+            >
+              متوجه شدم
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1148,6 +1184,31 @@ function EventCards({
           </div>
         );
       })}
+
+      {waitingCategory && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => setWaitingCategory(null)}
+          style={{ background: "rgba(15,23,42,0.55)", backdropFilter: "blur(2px)" }}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl p-5"
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "#fff", border: "1px solid rgba(15,23,42,0.08)" }}
+          >
+            <h3 className="text-slate-900 font-black text-base mb-2">به‌زودی فعال می‌شود</h3>
+            <p className="text-sm text-slate-600 leading-7">
+              ۱۵ نفر مانده تا شروع اولین همنشینی در دسته‌بندی «{waitingCategory}».
+            </p>
+            <button
+              className="mt-4 w-full bg-orange-500 text-white font-bold rounded-xl py-2.5"
+              onClick={() => setWaitingCategory(null)}
+            >
+              متوجه شدم
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -29,6 +29,7 @@ const NAV_ITEMS = [
   { href: "/admin/users", label: "کاربران", icon: Users },
   { href: "/admin/bookings", label: "رزروها", icon: Shield },
   { href: "/admin/cafe-telegram", label: "ربات کافه‌ها", icon: Coffee },
+  { href: "/admin/ai-chat", label: "چت AI مدیریت", icon: Brain },
   // ✅ لینک جدید CRM
   { href: "/admin/crm", label: "CRM هوشمند", icon: Brain, highlight: true },
 ];

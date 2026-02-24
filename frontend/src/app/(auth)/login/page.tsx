@@ -68,6 +68,19 @@ function LoginPageInner() {
     }
     setLoading(true);
     try {
+      if (mode === "signup") {
+        const checkRes = await fetch(`${API}/api/auth/check-phone`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: phone.replace(/\s/g, "") }),
+        });
+        const checkData = await checkRes.json();
+        if (!checkRes.ok) throw new Error(checkData.message || "خطا در بررسی شماره موبایل");
+        if (checkData.exists) {
+          throw new Error("شما قبلاً ثبت‌نام کرده‌اید. لطفاً از قسمت ورود وارد شوید.");
+        }
+      }
+
       const res = await fetch(`${API}/api/auth/request-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -172,8 +185,8 @@ function LoginPageInner() {
             {!otpSent ? (
               <>
                 <div className="mb-6">
-                  <div className="text-3xl mb-1">👋</div>
-                  <h2 className="text-2xl font-black text-white">خوش آمدید</h2>
+                  
+                  <h2 className="text-2xl font-black text-white">به پلتفرم راوی خوش آمدید</h2>
                   <p className="text-slate-400 mt-1 text-sm">
                     {mode === "login"
                       ? "لطفا برای ادامه شماره موبایل خود را وارد کنید."
@@ -260,7 +273,7 @@ function LoginPageInner() {
                         onChange={(e) =>
                           setPhone(e.target.value.replace(/[^\d]/g, ""))
                         }
-                        className={`${inp} pr-10 text-left`}
+                        className={`${inp} pr-10 text-left !text-black`}
                         placeholder="09123456789"
                         dir="ltr"
                         maxLength={11}
