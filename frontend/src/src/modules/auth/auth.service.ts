@@ -70,6 +70,16 @@ export class AuthService {
     return { message: 'OTP code sent successfully' };
   }
 
+
+  async checkPhoneExists(phone: string): Promise<{ exists: boolean }> {
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (!/^09\d{9}$/.test(cleanPhone)) {
+      throw new BadRequestException('شماره موبایل معتبر نیست');
+    }
+    const existing = await this.userRepository.findOne({ where: { mobileNumber: cleanPhone } });
+    return { exists: !!existing };
+  }
+
   async verifyOtp(phone: string, code: string, name?: string): Promise<{ access_token: string; user: any }> {
     const cleanPhone = phone.replace(/\D/g, '');
     const stored = otpStore.get(cleanPhone);

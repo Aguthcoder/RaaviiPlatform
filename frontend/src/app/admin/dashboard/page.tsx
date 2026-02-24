@@ -25,6 +25,7 @@ import {
   PieChart,
   ArrowUpRight,
   Trash2,
+  Info,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import RaviLoader from "@/components/RaviLoader";
@@ -248,6 +249,7 @@ export default function AdminDashboardPage() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [myEvents, setMyEvents] = useState<ApiEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [infoModal, setInfoModal] = useState<{ title: string; text: string } | null>(null);
 
   useEffect(() => {
     if (!isAdminPhone(state.user?.mobileNumber)) {
@@ -482,6 +484,7 @@ export default function AdminDashboardPage() {
               <BarChart2 size={15} className="text-orange-400" />
             </div>
             <h3 className="font-black text-white text-sm">رزروهای ماهانه</h3>
+            <button onClick={() => setInfoModal({ title: "رزروهای ماهانه", text: "این نمودار تعداد رزروهای ثبت‌شده در هر ماه را نشان می‌دهد." })} className="mr-auto text-slate-400 hover:text-orange-400 transition"><Info size={14} /></button>
           </div>
           <BarChartSVG
             data={
@@ -508,6 +511,7 @@ export default function AdminDashboardPage() {
             <h3 className="font-black text-white text-sm">
               توزیع دسته‌بندی‌ها
             </h3>
+            <button onClick={() => setInfoModal({ title: "توزیع دسته‌بندی‌ها", text: "سهم هر دسته‌بندی از کل رزروهای شما در این بخش نمایش داده می‌شود." })} className="mr-auto text-slate-400 hover:text-orange-400 transition"><Info size={14} /></button>
           </div>
           <DonutChart
             data={
@@ -534,6 +538,7 @@ export default function AdminDashboardPage() {
                 <DollarSign size={15} className="text-green-400" />
               </div>
               <h3 className="font-black text-white text-sm">روند درآمد</h3>
+              <button onClick={() => setInfoModal({ title: "روند درآمد", text: "این نمودار تغییرات درآمد شما را در بازه زمانی اخیر نمایش می‌دهد." })} className="mr-auto text-slate-400 hover:text-orange-400 transition"><Info size={14} /></button>
             </div>
             <span className="text-green-400 text-xs font-bold flex items-center gap-1">
               <ArrowUpRight size={13} /> در حال رشد
@@ -550,9 +555,20 @@ export default function AdminDashboardPage() {
             <TrendingUp size={15} className="text-orange-400" />
           </div>
           <h3 className="font-black text-white">درصد موفقیت رویدادها</h3>
+          <button onClick={() => setInfoModal({ title: "معیار موفقیت رویدادها", text: "رویداد موفق یعنی تکمیل ظرفیت یا رسیدن به حداقل آستانه حضور شرکت‌کننده‌ها." })} className="mr-auto text-slate-400 hover:text-orange-400 transition"><Info size={14} /></button>
         </div>
         <SuccessChart events={stats?.events || []} />
       </div>
+
+      {infoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)" }} onClick={() => setInfoModal(null)}>
+          <div className="w-full max-w-md rounded-2xl p-5" style={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)" }} onClick={(e) => e.stopPropagation()}>
+            <h4 className="text-white font-black mb-2">{infoModal.title}</h4>
+            <p className="text-slate-300 text-sm leading-7">{infoModal.text}</p>
+            <button className="mt-4 bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-bold" onClick={() => setInfoModal(null)}>بستن</button>
+          </div>
+        </div>
+      )}
 
       {/* Recent events */}
       <div className="rounded-3xl p-6" style={CARD}>
