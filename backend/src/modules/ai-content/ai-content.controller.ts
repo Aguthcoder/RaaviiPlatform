@@ -7,9 +7,9 @@ import { AiContentService } from './ai-content.service';
 import { isAdminUser } from '../admin/admin.controller';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AiContent } from './ai-content.entity';
+import { AiContent } from './entities/ai-content.entity';
 
-@Controller('api/content')
+@Controller('content')
 export class AiContentController {
   constructor(
     private readonly contentService: AiContentService,

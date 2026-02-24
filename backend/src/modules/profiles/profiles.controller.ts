@@ -25,7 +25,7 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-@Controller('api/profiles')
+@Controller('profiles')
 @UseGuards(JwtAuthGuard)
 export class ProfilesController {
   constructor(private profilesService: ProfilesService) {}

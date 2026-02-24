@@ -19,18 +19,16 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM base AS production
+# Production stage
+FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
-# Install only production dependencies
-RUN npm ci --only=production
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
 
 # Copy built application from builder
-COPY --from=builder /app/dist ./dist
 
 # Create logs directory
 RUN mkdir -p logs

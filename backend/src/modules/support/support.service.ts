@@ -93,7 +93,7 @@ export class SupportService {
 
       if (!response.ok) return;
 
-      const data = await response.json();
+      const data = await response.json() as any;
       const aiResponse = data.choices?.[0]?.message?.content || '';
 
       if (aiResponse) {
@@ -142,7 +142,7 @@ export class SupportService {
       throw new Error('خطا در ارتباط با AI');
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
     const reply = data.choices?.[0]?.message?.content || 'متأسفم، نمی‌توانم در حال حاضر پاسخ دهم.';
 
     // اگر AI نمی‌تواند پاسخ دهد، لینک تلگرام را اضافه کن

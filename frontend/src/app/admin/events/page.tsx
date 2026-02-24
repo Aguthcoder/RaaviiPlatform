@@ -201,13 +201,13 @@ export default function AdminEventsPage() {
       {filteredEvents.length === 0 ? (
         <div className="app-card rounded-3xl p-8 text-center">
           <Calendar size={48} className="text-slate-600 mx-auto mb-4" />
-          <h3 className="text-lg font-black text-white mb-2">رویدادی یافت نشد</h3>
-          <p className="text-slate-400 text-sm mb-5">اولین رویداد خود را ایجاد کنید.</p>
+          <h3 className="text-lg font-black text-white mb-2">همنشینی‌ای یافت نشد</h3>
+          <p className="text-slate-400 text-sm mb-5">اولین همنشینی خود را ایجاد کنید.</p>
           <Link
             href="/admin/events/new"
             className="inline-block bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold hover:bg-orange-400 transition"
           >
-            ایجاد رویداد
+            ایجاد همنشینی
           </Link>
         </div>
       ) : (

@@ -19,7 +19,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtGuard } from '../auth/guards/optional-jwt.guard';
 
 // تمام ادمین‌های سیستم (باید با admin.controller.ts هماهنگ باشه)
-export const ADMIN_PHONES = ['09356815523', '09929564895', '09933830958', '09055508305', '09053241505'];
+export const ADMIN_PHONES = ['09356815523', '09929564895', '09933830958', '09053241505'];
 
 export function isAdminUser(user: any): boolean {
   if (!user) return false;
@@ -32,7 +32,7 @@ function requireAdmin(user: any) {
   if (!isAdminUser(user)) throw new ForbiddenException('دسترسی ادمین لازم است');
 }
 
-@Controller('api/events')
+@Controller('events')
 export class EventsController {
   constructor(private eventsService: EventsService) {}
 
@@ -149,4 +149,19 @@ export class EventsController {
     requireAdmin(req.user);
     await this.eventsService.update(id, { is_active: false } as any);
   }
+
+  @Post('merge')
+  @UseGuards(JwtAuthGuard)
+  async mergeEvents(@Body() body: { sourceEventId:string; targetEventId:string }, @Req() req: any) {
+    requireAdmin(req.user);
+    return { success:false, message:'از EventMergeService استفاده کنید' };
+  }
+
+  @Post('send-reminder/:userId')
+  @UseGuards(JwtAuthGuard)
+  async sendManualReminder(@Param('userId') userId: string, @Req() req: any) {
+    requireAdmin(req.user);
+    return { success:false, message:'از SmsReminderService استفاده کنید' };
+  }
+
 }

@@ -88,6 +88,13 @@ export class Event {
   @Column({ default: false })
   is_featured: boolean;
 
+  /** در صورت ادغام، ID ایونت مقصد */
+  @Column({ type: 'uuid', nullable: true })
+  merged_into: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  merged_at: Date;
+
   @CreateDateColumn()
   created_at: Date;
 

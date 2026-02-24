@@ -6,7 +6,11 @@ export interface QuizQuestion {
   options: string[];
   correct_answer: number;
   explanation?: string;
+  image_url?: string;
+  image_keyword?: string;
 }
+
+export type GameType = 'icebreaker' | 'quiz' | 'ravi_frame';
 
 @Entity('event_quizzes')
 export class EventQuiz {
@@ -21,6 +25,12 @@ export class EventQuiz {
 
   @Column({ type: 'jsonb' })
   questions: QuizQuestion[];
+
+  @Column({ type: 'varchar', default: 'icebreaker' })
+  game_type: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  settings: { timer_seconds?:number; allow_skip?:boolean; show_images?:boolean; rotation_mode?:string };
 
   @Column({ default: true })
   is_active: boolean;

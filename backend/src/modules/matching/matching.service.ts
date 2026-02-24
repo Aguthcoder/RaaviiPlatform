@@ -12,11 +12,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { SmartProfile, CommunicationType, InteractionRhythm } from '../smart-profile/smart-profile.entity';
+import { SmartProfile, CommunicationType, InteractionRhythm } from '../smart-profile/entities/smart-profile.entity';
 import { Profile } from '../profiles/entities/profile.entity';
 import { User } from '../users/entities/user.entity';
 
-interface MatchCandidate {
+export interface MatchCandidate {
   userId: string;
   profile: Profile;
   smartProfile: SmartProfile;
@@ -30,7 +30,7 @@ interface MatchCandidate {
   interests: string[];
 }
 
-interface MatchGroup {
+export interface MatchGroup {
   memberIds: string[];
   avgCompatibilityScore: number;
   groupName: string;
@@ -382,9 +382,9 @@ export class MatchingService {
     }
 
     // محاسبه نرخ بازگشت
-    if (smartProfile.total_events_registered > 0) {
+    if (smartProfile.total_events_booked > 0) {
       smartProfile.return_rate = 
-        (smartProfile.total_events_attended / smartProfile.total_events_registered) * 100;
+        (smartProfile.total_events_attended / smartProfile.total_events_booked) * 100;
     }
 
     await this.smartProfileRepo.save(smartProfile);
@@ -459,9 +459,9 @@ export class MatchingService {
       smartProfile = this.smartProfileRepo.create({ user_id: userId });
     }
 
-    const existing = smartProfile.extracted_interests || [];
+    const existing = smartProfile.next_event_interests || [];
     const merged = [...new Set([...existing, ...detectedNeeds])];
-    smartProfile.extracted_interests = merged;
+    smartProfile.next_event_interests = merged;
 
     await this.smartProfileRepo.save(smartProfile);
     this.logger.log(`Updated user ${userId} needs: ${detectedNeeds.join(', ')}`);
@@ -477,7 +477,7 @@ export class MatchingService {
     const inactive = await this.smartProfileRepo
       .createQueryBuilder('sp')
       .where('sp.last_event_attended_at < :cutoff OR sp.last_event_attended_at IS NULL')
-      .andWhere('sp.total_events_registered = 0')
+      .andWhere('sp.total_events_booked = 0')
       .setParameter('cutoff', cutoff)
       .getMany();
 
@@ -502,7 +502,7 @@ export class MatchingService {
 
     const allInterests: Record<string, number> = {};
     profiles.forEach(p => {
-      (p.extracted_interests || []).forEach(interest => {
+      (p.next_event_interests || []).forEach(interest => {
         allInterests[interest] = (allInterests[interest] || 0) + 1;
       });
     });
@@ -537,7 +537,7 @@ export class MatchingService {
     p.energy_level = 50;
     p.return_rate = 0;
     p.total_events_attended = 0;
-    p.total_events_registered = 0;
+    p.total_events_booked = 0;
     p.no_show_count = 0;
     p.is_suspended = false;
     return p;

@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import AnimatedBackground from "@/components/AnimatedBackground";
-import { BookOpen, Clock, Eye, Tag, ChevronLeft, Sparkles, ArrowRight } from "lucide-react";
+import {
+  BookOpen,
+  Clock,
+  Eye,
+  ChevronLeft,
+  Sparkles,
+  ArrowRight,
+} from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -27,21 +34,59 @@ const CATEGORY_LABELS: Record<string, string> = {
   relationship: "روابط انسانی",
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  attachment: "rgba(168,85,247,0.2)",
-  communication: "rgba(59,130,246,0.2)",
-  emotion: "rgba(239,68,68,0.2)",
-  social: "rgba(34,197,94,0.2)",
-  psychology: "rgba(249,115,22,0.2)",
-  relationship: "rgba(236,72,153,0.2)",
+// رنگ badge هر دسته‌بندی — متن تیره روی پس‌زمینه روشن
+const CATEGORY_BADGE: Record<string, { bg: string; text: string }> = {
+  attachment: { bg: "#e9d5ff", text: "#6b21a8" },
+  communication: { bg: "#bfdbfe", text: "#1e40af" },
+  emotion: { bg: "#fecaca", text: "#991b1b" },
+  social: { bg: "#bbf7d0", text: "#14532d" },
+  psychology: { bg: "#fed7aa", text: "#9a3412" },
+  relationship: { bg: "#fce7f3", text: "#9d174d" },
 };
 
-// مقالات نمونه در صورتی که API در دسترس نباشد
+// تصاویر ثابت Unsplash براساس موضوع مقاله
+const CATEGORY_IMAGES: Record<string, string> = {
+  attachment:
+    "https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?w=600&h=280&fit=crop&auto=format",
+  communication:
+    "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=600&h=280&fit=crop&auto=format",
+  emotion:
+    "https://images.unsplash.com/photo-1499557354967-2b2d8910bcca?w=600&h=280&fit=crop&auto=format",
+  social:
+    "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&h=280&fit=crop&auto=format",
+  psychology:
+    "https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=600&h=280&fit=crop&auto=format",
+  relationship:
+    "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=600&h=280&fit=crop&auto=format",
+  // fallback
+  default:
+    "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&h=280&fit=crop&auto=format",
+};
+
+// رنگ گرادیانت overlay روی تصویر، متناسب با دسته‌بندی
+const CATEGORY_GRADIENT: Record<string, string> = {
+  attachment:
+    "linear-gradient(180deg, rgba(107,33,168,0.35) 0%, rgba(11,16,40,0.92) 100%)",
+  communication:
+    "linear-gradient(180deg, rgba(30,64,175,0.35) 0%, rgba(11,16,40,0.92) 100%)",
+  emotion:
+    "linear-gradient(180deg, rgba(153,27,27,0.35) 0%, rgba(11,16,40,0.92) 100%)",
+  social:
+    "linear-gradient(180deg, rgba(20,83,45,0.35)  0%, rgba(11,16,40,0.92) 100%)",
+  psychology:
+    "linear-gradient(180deg, rgba(154,52,18,0.35) 0%, rgba(11,16,40,0.92) 100%)",
+  relationship:
+    "linear-gradient(180deg, rgba(157,23,77,0.35) 0%, rgba(11,16,40,0.92) 100%)",
+  default:
+    "linear-gradient(180deg, rgba(30,41,59,0.35)  0%, rgba(11,16,40,0.92) 100%)",
+};
+
 const SAMPLE_ARTICLES: Article[] = [
   {
     id: "sample-1",
     title: "سبک‌های دلبستگی و تأثیر آن بر روابط بزرگسالی",
-    summary: "تحقیقات نشان می‌دهد که الگوهای دلبستگی در دوران کودکی، تأثیر عمیقی بر کیفیت روابط ما در بزرگسالی دارند. درک این الگوها می‌تواند اولین قدم برای بهبود روابط باشد...",
+    summary:
+      "تحقیقات نشان می‌دهد که الگوهای دلبستگی در دوران کودکی، تأثیر عمیقی بر کیفیت روابط ما در بزرگسالی دارند. درک این الگوها می‌تواند اولین قدم برای بهبود روابط باشد...",
     category: "attachment",
     tags: ["دلبستگی", "روابط", "روان‌شناسی"],
     view_count: 342,
@@ -50,7 +95,8 @@ const SAMPLE_ARTICLES: Article[] = [
   {
     id: "sample-2",
     title: "گوش دادن فعال: هنر شنیدن که رابطه می‌سازد",
-    summary: "در دنیایی پر از حواس‌پرتی، توانایی گوش دادن واقعی به دیگران تبدیل به یک مهارت نادر و ارزشمند شده است. مطالعات روان‌شناسی نشان می‌دهد که احساس شنیده‌شدن...",
+    summary:
+      "در دنیایی پر از حواس‌پرتی، توانایی گوش دادن واقعی به دیگران تبدیل به یک مهارت نادر و ارزشمند شده است. مطالعات روان‌شناسی نشان می‌دهد که احساس شنیده‌شدن...",
     category: "communication",
     tags: ["ارتباط", "مهارت", "گوش دادن"],
     view_count: 218,
@@ -59,7 +105,8 @@ const SAMPLE_ARTICLES: Article[] = [
   {
     id: "sample-3",
     title: "درون‌گراها و برون‌گراها: همکاری یا تضاد؟",
-    summary: "برخلاف باور رایج، درون‌گرایی و برون‌گرایی دو قطب مجزا نیستند بلکه یک طیف پیوسته هستند. تحقیقات جدید نشان می‌دهد که بهترین گروه‌های اجتماعی...",
+    summary:
+      "برخلاف باور رایج، درون‌گرایی و برون‌گرایی دو قطب مجزا نیستند بلکه یک طیف پیوسته هستند. تحقیقات جدید نشان می‌دهد که بهترین گروه‌های اجتماعی...",
     category: "psychology",
     tags: ["شخصیت", "گروه", "تعامل"],
     view_count: 156,
@@ -68,11 +115,32 @@ const SAMPLE_ARTICLES: Article[] = [
   {
     id: "sample-4",
     title: "هوش هیجانی در روابط بین‌فردی",
-    summary: "هوش هیجانی (EQ) یکی از مهم‌ترین عوامل موفقیت در روابط اجتماعی است. مجله Nature Human Behaviour در تحقیق اخیر خود نشان داد که افراد با EQ بالا...",
+    summary:
+      "هوش هیجانی (EQ) یکی از مهم‌ترین عوامل موفقیت در روابط اجتماعی است. مجله Nature Human Behaviour در تحقیق اخیر خود نشان داد که افراد با EQ بالا...",
     category: "emotion",
     tags: ["هوش هیجانی", "روابط", "خودآگاهی"],
     view_count: 289,
     published_at: new Date(Date.now() - 86400000 * 7).toISOString(),
+  },
+  {
+    id: "sample-5",
+    title: "چرا دوستی‌های عمیق نادر و ارزشمندند؟",
+    summary:
+      "تحقیقات علوم اجتماعی نشان می‌دهد که اکثر افراد در طول زندگی تنها ۳ تا ۵ دوست واقعی دارند. این محدودیت ریشه در ظرفیت شناختی مغز انسان دارد...",
+    category: "social",
+    tags: ["دوستی", "اجتماعی", "روابط"],
+    view_count: 195,
+    published_at: new Date(Date.now() - 86400000 * 10).toISOString(),
+  },
+  {
+    id: "sample-6",
+    title: "زبان عشق: پنج روش که با آن‌ها محبت ابراز می‌کنیم",
+    summary:
+      "گری چپمن در کتاب معروف خود نشان داد که افراد محبت را به پنج شکل متفاوت بیان و دریافت می‌کنند. درک زبان عشق خود و دیگران می‌تواند تحول‌آفرین باشد...",
+    category: "relationship",
+    tags: ["زبان عشق", "صمیمیت", "ارتباط"],
+    view_count: 412,
+    published_at: new Date(Date.now() - 86400000 * 12).toISOString(),
   },
 ];
 
@@ -88,11 +156,125 @@ function formatDate(dateStr: string) {
   }
 }
 
-const CARD_STYLE = {
-  background: "linear-gradient(145deg, #1B2A4A 0%, #132038 100%)",
-  border: "1px solid rgba(255,255,255,0.07)",
-  boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
-};
+function getArticleImage(article: Article): string {
+  if (article.image_url) return article.image_url;
+  return CATEGORY_IMAGES[article.category] || CATEGORY_IMAGES.default;
+}
+
+function getOverlayGradient(category: string): string {
+  return CATEGORY_GRADIENT[category] || CATEGORY_GRADIENT.default;
+}
+
+function ArticleCard({ article, index }: { article: Article; index: number }) {
+  const badge = CATEGORY_BADGE[article.category] || {
+    bg: "#e2e8f0",
+    text: "#1e293b",
+  };
+  const imgSrc = getArticleImage(article);
+  const overlay = getOverlayGradient(article.category);
+
+  return (
+    <Link href={`/articles/${article.id}`}>
+      <div
+        className="rounded-3xl overflow-hidden hover:scale-[1.015] transition-all duration-300 cursor-pointer group"
+        style={{
+          background: "linear-gradient(145deg, #1B2A4A 0%, #132038 100%)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
+        }}
+      >
+        {/* ── تصویر مقاله ── */}
+        <div
+          className="relative w-full overflow-hidden"
+          style={{ height: 200 }}
+        >
+          <img
+            src={imgSrc}
+            alt={article.title}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            loading="lazy"
+          />
+          {/* گرادیانت overlay */}
+          <div className="absolute inset-0" style={{ background: overlay }} />
+
+          {/* badge دسته‌بندی روی تصویر */}
+          <div className="absolute top-3 right-3 flex items-center gap-2">
+            <span
+              className="text-[11px] font-black px-3 py-1 rounded-full shadow-sm"
+              style={{ background: badge.bg, color: badge.text }}
+            >
+              {CATEGORY_LABELS[article.category] || article.category}
+            </span>
+          </div>
+
+          {/* نشان جدیدترین */}
+          {index === 0 && (
+            <div className="absolute top-3 left-3">
+              <span
+                className="text-[10px] text-white font-bold flex items-center gap-1 px-2.5 py-1 rounded-full"
+                style={{
+                  background: "rgba(255,107,0,0.85)",
+                  border: "1px solid rgba(255,107,0,0.5)",
+                }}
+              >
+                <Sparkles size={10} />
+                جدیدترین
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* ── متن مقاله ── */}
+        <div className="p-5">
+          <h2 className="text-sm font-black text-white mb-2 leading-snug group-hover:text-orange-300 transition-colors line-clamp-2">
+            {article.title}
+          </h2>
+
+          <p className="text-xs text-slate-400 leading-relaxed mb-4 line-clamp-2">
+            {article.summary}
+          </p>
+
+          {/* footer کارت */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 text-[11px] text-slate-500">
+              <span className="flex items-center gap-1">
+                <Eye size={11} />
+                {article.view_count.toLocaleString("fa-IR")}
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock size={11} />
+                {formatDate(article.published_at)}
+              </span>
+            </div>
+            <ChevronLeft
+              size={16}
+              className="text-orange-400 group-hover:translate-x-[-4px] transition-transform"
+            />
+          </div>
+
+          {/* تگ‌ها */}
+          {article.tags && article.tags.length > 0 && (
+            <div className="flex gap-1.5 mt-3 flex-wrap">
+              {article.tags.slice(0, 4).map((tag) => (
+                <span
+                  key={tag}
+                  className="text-[10px] px-2 py-0.5 rounded-lg"
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    color: "rgba(255,255,255,0.45)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 export default function ArticlesPage() {
   const [articles, setArticles] = useState<Article[]>([]);
@@ -103,11 +285,8 @@ export default function ArticlesPage() {
     fetch(`${API_URL}/api/articles?limit=20`)
       .then((r) => r.json())
       .then((data) => {
-        if (data?.items?.length > 0) {
-          setArticles(data.items);
-        } else {
-          setArticles(SAMPLE_ARTICLES);
-        }
+        if (data?.items?.length > 0) setArticles(data.items);
+        else setArticles(SAMPLE_ARTICLES);
       })
       .catch(() => setArticles(SAMPLE_ARTICLES))
       .finally(() => setLoading(false));
@@ -118,13 +297,21 @@ export default function ArticlesPage() {
       ? articles
       : articles.filter((a) => a.category === selectedCategory);
 
-  const categories = ["all", ...new Set(articles.map((a) => a.category))];
+  const categories = [
+    "all",
+    ...Array.from(new Set(articles.map((a) => a.category))),
+  ];
 
   return (
-    <div className="min-h-screen pb-28 relative" dir="rtl">
+    <div
+      className="min-h-screen pb-28 relative"
+      dir="rtl"
+      style={{ background: "#090e1c" }}
+    >
       <AnimatedBackground />
+
       <div className="relative z-10 max-w-2xl mx-auto px-4 pt-4">
-        {/* هدر */}
+        {/* بازگشت */}
         <Link
           href="/dashboard"
           className="inline-flex items-center gap-2 text-slate-400 hover:text-white text-sm mb-5 transition-colors"
@@ -132,6 +319,7 @@ export default function ArticlesPage() {
           <ArrowRight size={16} /> بازگشت
         </Link>
 
+        {/* هدر */}
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
             <div
@@ -155,37 +343,44 @@ export default function ArticlesPage() {
           >
             <p className="text-xs text-slate-300 leading-relaxed">
               <Sparkles size={12} className="inline text-orange-400 ml-1" />
-              مقالات این بخش با هوش مصنوعی از منابع علمی معتبر (Nature, PubMed) تولید و توسط تیم راوی بررسی می‌شود
+              مقالات این بخش با هوش مصنوعی از منابع علمی معتبر (Nature, PubMed)
+              تولید و توسط تیم راوی بررسی می‌شود
             </p>
           </div>
         </div>
 
         {/* فیلتر دسته‌بندی */}
         <div className="flex gap-2 overflow-x-auto pb-2 mb-5 scrollbar-hide">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-              style={{
-                background:
-                  selectedCategory === cat
-                    ? "rgba(255,107,0,0.8)"
-                    : "rgba(255,255,255,0.06)",
-                color:
-                  selectedCategory === cat
-                    ? "white"
-                    : "rgba(255,255,255,0.5)",
-                border: "1px solid",
-                borderColor:
-                  selectedCategory === cat
-                    ? "rgba(255,107,0,0.5)"
+          {categories.map((cat) => {
+            const badge = CATEGORY_BADGE[cat];
+            const isActive = selectedCategory === cat;
+            return (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className="flex-shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all"
+                style={{
+                  background: isActive
+                    ? cat === "all"
+                      ? "#FF6B00"
+                      : badge?.bg || "#FF6B00"
                     : "rgba(255,255,255,0.08)",
-              }}
-            >
-              {cat === "all" ? "همه" : CATEGORY_LABELS[cat] || cat}
-            </button>
-          ))}
+                  color: isActive
+                    ? cat === "all"
+                      ? "white"
+                      : badge?.text || "white"
+                    : "rgba(255,255,255,0.65)",
+                  border: "1px solid",
+                  borderColor: isActive
+                    ? "transparent"
+                    : "rgba(255,255,255,0.12)",
+                  boxShadow: isActive ? "0 2px 8px rgba(0,0,0,0.25)" : "none",
+                }}
+              >
+                {cat === "all" ? "همه" : CATEGORY_LABELS[cat] || cat}
+              </button>
+            );
+          })}
         </div>
 
         {/* مقالات */}
@@ -194,85 +389,22 @@ export default function ArticlesPage() {
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="rounded-3xl h-32 animate-pulse"
+                className="rounded-3xl overflow-hidden animate-pulse"
                 style={{ background: "rgba(255,255,255,0.05)" }}
-              />
+              >
+                <div className="h-48 bg-white/5" />
+                <div className="p-5 space-y-3">
+                  <div className="h-4 bg-white/10 rounded w-3/4" />
+                  <div className="h-3 bg-white/06 rounded w-full" />
+                  <div className="h-3 bg-white/06 rounded w-2/3" />
+                </div>
+              </div>
             ))}
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {filtered.map((article, index) => (
-              <Link key={article.id} href={`/articles/${article.id}`}>
-                <div
-                  className="rounded-3xl p-4 hover:scale-[1.01] transition-all cursor-pointer group"
-                  style={CARD_STYLE}
-                >
-                  {/* دسته‌بندی */}
-                  <div className="flex items-center justify-between mb-3">
-                    <span
-                      className="text-[10px] font-bold px-2.5 py-1 rounded-full"
-                      style={{
-                        background:
-                          CATEGORY_COLORS[article.category] ||
-                          "rgba(255,255,255,0.1)",
-                        color: "rgba(255,255,255,0.8)",
-                        border: "1px solid rgba(255,255,255,0.1)",
-                      }}
-                    >
-                      {CATEGORY_LABELS[article.category] || article.category}
-                    </span>
-                    {index === 0 && (
-                      <span className="text-[10px] text-orange-400 font-bold flex items-center gap-1">
-                        <Sparkles size={10} />
-                        جدیدترین
-                      </span>
-                    )}
-                  </div>
-
-                  <h2 className="text-sm font-black text-white mb-2 leading-snug group-hover:text-orange-300 transition-colors">
-                    {article.title}
-                  </h2>
-
-                  <p className="text-xs text-slate-400 leading-relaxed mb-3 line-clamp-2">
-                    {article.summary}
-                  </p>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-[11px] text-slate-500">
-                      <span className="flex items-center gap-1">
-                        <Eye size={10} />
-                        {article.view_count.toLocaleString("fa-IR")}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock size={10} />
-                        {formatDate(article.published_at)}
-                      </span>
-                    </div>
-                    <ChevronLeft
-                      size={14}
-                      className="text-orange-400 group-hover:translate-x-[-4px] transition-transform"
-                    />
-                  </div>
-
-                  {/* تگ‌ها */}
-                  {article.tags && article.tags.length > 0 && (
-                    <div className="flex gap-1.5 mt-2 flex-wrap">
-                      {article.tags.slice(0, 3).map((tag) => (
-                        <span
-                          key={tag}
-                          className="text-[9px] px-1.5 py-0.5 rounded-md"
-                          style={{
-                            background: "rgba(255,255,255,0.05)",
-                            color: "rgba(255,255,255,0.4)",
-                          }}
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </Link>
+              <ArticleCard key={article.id} article={article} index={index} />
             ))}
           </div>
         )}

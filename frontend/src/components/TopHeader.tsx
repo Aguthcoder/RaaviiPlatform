@@ -14,7 +14,10 @@ export default function TopHeader() {
   const hiddenPaths = ["/login", "/verify-mobile", "/(auth)"];
   if (hiddenPaths.some((p) => pathname?.startsWith(p))) return null;
 
-  const city = state.city || (state.user as any)?.city || (state.user as any)?.profile?.city;
+  const city =
+    state.city ||
+    (state.user as any)?.city ||
+    (state.user as any)?.profile?.city;
 
   const handleCityClick = () => {
     // کلیک روی شهر → صفحه ویرایش پروفایل
@@ -33,14 +36,14 @@ export default function TopHeader() {
       }}
     >
       {/* لوگو بزرگ */}
-      <Link href="/" className="flex items-center gap-2.5 select-none">
+      <Link href="/events" className="flex items-center gap-3 select-none">
         <div
           className="flex items-center justify-center rounded-full text-white font-black text-xl"
           style={{
-            width: 46,
-            height: 46,
+            width: 58,
+            height: 58,
             background: "linear-gradient(135deg, #FF6B00 0%, #FF9A3C 100%)",
-            boxShadow: "0 4px 16px rgba(255,107,0,0.4)",
+            boxShadow: "0 4px 20px rgba(255,107,0,0.45)",
           }}
         >
           <img
@@ -54,7 +57,7 @@ export default function TopHeader() {
           />
         </div>
         <span
-          className="text-2xl font-black tracking-wide"
+          className="text-3xl font-black tracking-wide"
           style={{ color: "#1a3a5c" }}
         >
           راوی
@@ -71,7 +74,10 @@ export default function TopHeader() {
           border: `1.5px solid ${city ? "rgba(255,107,0,0.2)" : "rgba(26,58,92,0.1)"}`,
         }}
       >
-        <MapPin size={14} className={city ? "text-orange-500" : "text-slate-400"} />
+        <MapPin
+          size={14}
+          className={city ? "text-orange-500" : "text-slate-400"}
+        />
         <span>{city || "انتخاب شهر"}</span>
       </button>
     </header>

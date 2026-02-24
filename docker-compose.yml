@@ -3,85 +3,69 @@ version: "3.8"
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: raavi_postgres
-    restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: raavi_pass_2024
-      POSTGRES_DB: raavi_db
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-raavi_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Q1FpBFqEwbrfFK4uVHQbDf7V3h6XaOiY}
+      POSTGRES_DB: ${POSTGRES_DB:-raavi_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - raavi_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-raavi_user} -d ${POSTGRES_DB:-raavi_db}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
-    container_name: raavi_redis
-    restart: always
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
-    networks:
-      - raavi_network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: raavi_backend
-    restart: always
-    env_file:
-      - ./backend/.env
     ports:
       - "4000:4000"
+    env_file:
+      - ./backend/.env.production
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${POSTGRES_USER:-raavi_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-Q1FpBFqEwbrfFK4uVHQbDf7V3h6XaOiY}
+      DB_DATABASE: ${POSTGRES_DB:-raavi_db}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      NODE_ENV: production
+      ENABLE_DEV_OTP: "true"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
-    networks:
-      - raavi_network
-
-  telegram-bot:
-    build:
-      context: ./telegram-bot
-      dockerfile: Dockerfile
-    container_name: raavi_telegram_bot
-    env_file:
-      - ./telegram-bot/.env
-    ports:
-      - "8000:8000"
-    depends_on:
-      - redis
-      - backend
-    networks:
-      - raavi_network
+        condition: service_healthy
+    restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: raavi_frontend
     ports:
       - "3001:3000"
     depends_on:
       - backend
-    networks:
-      - raavi_network
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   redis_data:
-
-networks:
-  raavi_network:
-    driver: bridge

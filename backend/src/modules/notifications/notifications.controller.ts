@@ -4,7 +4,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 // ✅ اصلاح شد: از 'notifications' به 'api/notifications'
 // قبلاً روی /notifications بود که با پروکسی Next.js هماهنگ نبود
-@Controller('api/notifications')
+@Controller('notifications')
 @UseGuards(JwtAuthGuard)
 export class NotificationsController {
   constructor(private readonly svc: NotificationsService) {}

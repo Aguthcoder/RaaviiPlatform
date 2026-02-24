@@ -27,6 +27,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) throw new UnauthorizedException('کاربر یافت نشد');
     if (user.is_banned) throw new UnauthorizedException('حساب کاربری مسدود شده است');
 
-    return { id: user.id, email: user.email, role: user.role };
+    return { id: user.id, email: user.email, role: user.role, mobileNumber: user.mobileNumber };
   }
 }

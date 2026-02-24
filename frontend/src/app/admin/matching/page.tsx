@@ -115,7 +115,7 @@ export default function MatchingAdminPage() {
 
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {events.length === 0 && (
-              <p className="text-slate-500 text-sm text-center py-4">رویدادی یافت نشد</p>
+              <p className="text-slate-500 text-sm text-center py-4">همنشینی‌ای یافت نشد</p>
             )}
             {events.map((event) => (
               <button

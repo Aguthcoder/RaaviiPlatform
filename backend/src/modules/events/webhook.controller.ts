@@ -4,7 +4,7 @@ import { Controller, Post, Body, Headers, UnauthorizedException, HttpCode } from
  * Webhook endpoints for N8N workflow integration
  * These endpoints receive callbacks from N8N workflows
  */
-@Controller('api/webhooks')
+@Controller('webhooks')
 export class WebhookController {
   private readonly sharedSecret = process.env.N8N_SHARED_SECRET || 'ravi-n8n-secret-2024';
 

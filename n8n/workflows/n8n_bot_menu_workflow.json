@@ -1,0 +1,847 @@
+{
+  "name": "Ravi Bot - Menu System v2",
+  "nodes": [
+    {
+      "id": "node-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [200, 400],
+      "parameters": {
+        "updates": ["message", "callback_query"],
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "1",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "id": "node-extract",
+      "name": "Extract: Chat Info",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 400],
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\n\nlet chatId, fromId, text, callbackData, callbackQueryId, updateType;\n\nif (body.callback_query) {\n  updateType = 'callback';\n  chatId = body.callback_query.message.chat.id;\n  fromId = body.callback_query.from.id.toString();\n  callbackData = body.callback_query.data;\n  callbackQueryId = body.callback_query.id;\n  text = '';\n} else if (body.message) {\n  updateType = 'message';\n  chatId = body.message.chat.id;\n  fromId = body.message.from.id.toString();\n  text = body.message.text || '';\n  callbackData = '';\n  callbackQueryId = '';\n}\n\nconst command = text.split(' ')[0].toLowerCase();\n\nreturn [{ json: { updateType, chatId, fromId, text, command, callbackData, callbackQueryId } }];"
+      }
+    },
+    {
+      "id": "node-route-type",
+      "name": "Route: Callback or Message?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [640, 400],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.updateType }}",
+                    "rightValue": "callback",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "callback"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.updateType }}",
+                    "rightValue": "message",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "message"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-route-callback",
+      "name": "Route: Which Callback?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [860, 200],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.callbackData.split(':')[0] }}",
+                    "rightValue": "cafe_menu",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "cafe_menu"
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.callbackData.split(':')[0] }}",
+                    "rightValue": "attend_event",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "attend_event"
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.callbackData.split(':')[0] }}",
+                    "rightValue": "mark",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "mark"
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.callbackData.split(':')[0] }}",
+                    "rightValue": "finalize",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "finalize"
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.callbackData.split(':')[0] }}",
+                    "rightValue": "menu",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "menu"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-route-command",
+      "name": "Route: Which Command?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [860, 600],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "/start",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "start"
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "/menu",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "start"
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "/attendance",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "attendance"
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.text.toLowerCase().startsWith('login') }}",
+                    "rightValue": true,
+                    "operator": { "type": "boolean", "operation": "true" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "login"
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "/myevents",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "myevents"
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "/support",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "support"
+            }
+          ]
+        },
+        "fallbackOutput": "extra",
+        "options": {}
+      }
+    },
+
+    {
+      "id": "node-check-cafe",
+      "name": "Check: Is Cafe Admin?",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1080, 400],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ https://raaviiplatform.com }}/api/bot/cafe/me/{{ $json.fromId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-ravi-bot-secret",
+              "value": "={{ ravi-bot-secret-2024 }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-merge-context",
+      "name": "Merge: Add Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 400],
+      "parameters": {
+        "jsCode": "const prev = $input.first().json;\nconst chatInfo = $('Extract: Chat Info').first().json;\nreturn [{ json: { ...prev, ...chatInfo } }];"
+      }
+    },
+    {
+      "id": "node-route-cafe-or-user",
+      "name": "Route: Cafe or User?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1520, 400],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.linked }}",
+                    "rightValue": true,
+                    "operator": { "type": "boolean", "operation": "true" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "cafe"
+            },
+            {
+              "conditions": {
+                "options": {},
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.linked }}",
+                    "rightValue": false,
+                    "operator": { "type": "boolean", "operation": "false" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "user"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+
+    {
+      "id": "node-send-cafe-menu",
+      "name": "Send: Cafe Main Menu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1740, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ 8416661246:AAEb0d-g188-zJiiP54-3AQ85LpJLHl9RUw }}/sendMessage",
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "chat_id": "={{ $json.chatId }}",
+          "text": "=☕ سلام {{ $json.cafeName }}!\n\nمنوی کافه‌ادمین راوی:",
+          "reply_markup": "={\"inline_keyboard\":[[{\"text\":\"📋 حضور و غیاب\",\"callback_data\":\"cafe_menu:attendance\"},{\"text\":\"📅 رویدادهای آینده\",\"callback_data\":\"cafe_menu:upcoming\"}],[{\"text\":\"📊 آمار امروز\",\"callback_data\":\"cafe_menu:stats\"},{\"text\":\"ℹ️ اطلاعات کافه\",\"callback_data\":\"cafe_menu:info\"}],[{\"text\":\"🔄 رفرش\",\"callback_data\":\"menu\"}]]}"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-send-user-menu",
+      "name": "Send: User Main Menu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1740, 500],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $vars.BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "chat_id": "={{ $json.chatId }}",
+          "text": "=👋 سلام!\nبه ربات راوی خوش اومدی 🎉\nاز منوی پایین انتخاب کن:",
+          "reply_markup": "={\"keyboard\":[[{\"text\":\"📅 رویدادهای من\"},{\"text\":\"🎯 رویدادهای جدید\"}],[{\"text\":\"👤 پروفایل من\"},{\"text\":\"❓ پشتیبانی\"}]],\"resize_keyboard\":true,\"persistent\":true}"
+        },
+        "options": {}
+      }
+    },
+
+    {
+      "id": "node-get-upcoming",
+      "name": "Get: Upcoming Events",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1740, 120],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $vars.BACKEND_URL }}/api/bot/cafe/upcoming-events/{{ $('Extract: Chat Info').first().json.fromId }}?days=7",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-ravi-bot-secret", "value": "={{ $vars.BOT_SECRET }}" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-build-event-buttons",
+      "name": "Build: Event Buttons",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1960, 120],
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst chatId = $('Extract: Chat Info').first().json.chatId;\nconst events = data.events || [];\nconst cafeName = data.cafe?.name || 'کافه';\n\nif (events.length === 0) {\n  return [{ json: {\n    chat_id: chatId,\n    text: '📅 هیچ رویدادی در ۷ روز آینده وجود ندارد.',\n    reply_markup: JSON.stringify({ inline_keyboard: [[{ text: '🏠 منوی اصلی', callback_data: 'menu' }]] })\n  }}];\n}\n\nconst buttons = events.map(ev => {\n  const d = new Date(ev.start_date);\n  const date = d.toLocaleDateString('fa-IR', { weekday: 'short', month: 'short', day: 'numeric' });\n  const time = d.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });\n  return [{ text: `📌 ${ev.title} — ${date} ${time}`, callback_data: `attend_event:${ev.id}` }];\n});\nbuttons.push([{ text: '🏠 منوی اصلی', callback_data: 'menu' }]);\n\nreturn [{ json: {\n  chat_id: chatId,\n  text: `📅 رویدادهای آینده ${cafeName}:\\nیک رویداد انتخاب کنید:`,\n  reply_markup: JSON.stringify({ inline_keyboard: buttons })\n}}];"
+      }
+    },
+    {
+      "id": "node-send-event-buttons",
+      "name": "Send: Event Buttons",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2180, 120],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $vars.BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "chat_id": "={{ $json.chat_id }}",
+          "text": "={{ $json.text }}",
+          "reply_markup": "={{ $json.reply_markup }}"
+        },
+        "options": {}
+      }
+    },
+
+    {
+      "id": "node-get-attendance",
+      "name": "Get: Attendance List",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1740, -60],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $vars.BACKEND_URL }}/api/bot/cafe/attendance/{{ $('Extract: Chat Info').first().json.fromId }}/{{ $('Extract: Chat Info').first().json.callbackData.split(':')[1] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-ravi-bot-secret", "value": "={{ $vars.BOT_SECRET }}" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-build-attendance",
+      "name": "Build: Attendance Buttons",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1960, -60],
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst chatId = $('Extract: Chat Info').first().json.chatId;\nconst eventId = $('Extract: Chat Info').first().json.callbackData.split(':')[1];\nconst attendees = data.attendees || [];\nconst event = data.event || {};\n\nconst present = attendees.filter(a => a.attended === true).length;\nconst absent = attendees.filter(a => a.attended === false).length;\nconst unmarked = attendees.filter(a => a.attended == null).length;\n\nlet text = `📋 ${event.title || 'رویداد'}\\n`;\ntext += `⏰ ${new Date(event.start_date).toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'})}\\n\\n`;\ntext += `✅ ${present}  ❌ ${absent}  ⬜ ${unmarked}\\n\\n👥 شرکت‌کنندگان:`;\n\nconst buttons = attendees.map(a => {\n  const st = a.attended === true ? '✅' : a.attended === false ? '❌' : '⬜';\n  const next = a.attended === true ? 'false' : 'true';\n  return [{ text: `${st} ${a.name}`, callback_data: `mark:${eventId}:${a.userId}:${next}` }];\n});\nbuttons.push([\n  { text: '💾 ثبت نهایی', callback_data: `finalize:${eventId}` },\n  { text: '🔙 برگشت', callback_data: 'cafe_menu:upcoming' }\n]);\n\nreturn [{ json: {\n  chat_id: chatId,\n  text,\n  reply_markup: JSON.stringify({ inline_keyboard: buttons })\n}}];"
+      }
+    },
+    {
+      "id": "node-send-attendance",
+      "name": "Send: Attendance List",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2180, -60],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $vars.BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "chat_id": "={{ $json.chat_id }}",
+          "text": "={{ $json.text }}",
+          "reply_markup": "={{ $json.reply_markup }}"
+        },
+        "options": {}
+      }
+    },
+
+    {
+      "id": "node-toggle-mark",
+      "name": "Toggle: Mark Attendance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1740, -240],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $vars.BACKEND_URL }}/api/bot/cafe/attendance/toggle",
+        "sendHeaders": true,
+        "sendBody": true,
+        "contentType": "json",
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-ravi-bot-secret", "value": "={{ $vars.BOT_SECRET }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "body": {
+          "telegramId": "={{ $('Extract: Chat Info').first().json.fromId }}",
+          "eventId": "={{ $('Extract: Chat Info').first().json.callbackData.split(':')[1] }}",
+          "userId": "={{ $('Extract: Chat Info').first().json.callbackData.split(':')[2] }}",
+          "attended": "={{ $('Extract: Chat Info').first().json.callbackData.split(':')[3] === 'true' }}"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-answer-callback",
+      "name": "Answer: Callback Query",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1960, -240],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $vars.BOT_TOKEN }}/answerCallbackQuery",
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "callback_query_id": "={{ $('Extract: Chat Info').first().json.callbackQueryId }}",
+          "text": "={{ $json.success ? '✅ ثبت شد!' : '❌ خطا در ثبت' }}",
+          "show_alert": false
+        },
+        "options": {}
+      }
+    },
+
+    {
+      "id": "node-get-for-finalize",
+      "name": "Get: List for Finalize",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1740, -420],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $vars.BACKEND_URL }}/api/bot/cafe/attendance/{{ $('Extract: Chat Info').first().json.fromId }}/{{ $('Extract: Chat Info').first().json.callbackData.split(':')[1] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-ravi-bot-secret", "value": "={{ $vars.BOT_SECRET }}" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-post-finalize",
+      "name": "POST: Finalize Attendance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1960, -420],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $vars.BACKEND_URL }}/api/bot/cafe/attendance/finalize",
+        "sendHeaders": true,
+        "sendBody": true,
+        "contentType": "json",
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-ravi-bot-secret", "value": "={{ $vars.BOT_SECRET }}" }
+          ]
+        },
+        "body": {
+          "telegramId": "={{ $('Extract: Chat Info').first().json.fromId }}",
+          "eventId": "={{ $('Extract: Chat Info').first().json.callbackData.split(':')[1] }}",
+          "attendances": "={{ $json.attendees.map(a => ({ userId: a.userId, attended: a.attended === true })) }}"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-send-finalize-done",
+      "name": "Send: Finalize Done",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2180, -420],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $vars.BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "chat_id": "={{ $('Extract: Chat Info').first().json.chatId }}",
+          "text": "=✅ حضور و غیاب ثبت نهایی شد!\n\n👥 {{ $json.marked }} نفر ثبت شدند.\n\n🎉 ممنون!",
+          "reply_markup": "{\"inline_keyboard\":[[{\"text\":\"🏠 منوی اصلی\",\"callback_data\":\"menu\"}]]}"
+        },
+        "options": {}
+      }
+    },
+
+    {
+      "id": "node-parse-login",
+      "name": "Parse: Cafe Login",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 720],
+      "parameters": {
+        "jsCode": "const text = $input.first().json.text || '';\nconst parts = text.trim().split(/\\s+/);\nif (parts.length < 3) {\n  return [{ json: { ...$input.first().json, valid: false } }];\n}\nreturn [{ json: { ...$input.first().json, valid: true, username: parts[1], password: parts[2] } }];"
+      }
+    },
+    {
+      "id": "node-post-login",
+      "name": "POST: Cafe Login",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1300, 720],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $vars.BACKEND_URL }}/api/bot/cafe/login",
+        "sendHeaders": true,
+        "sendBody": true,
+        "contentType": "json",
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-ravi-bot-secret", "value": "={{ $vars.BOT_SECRET }}" }
+          ]
+        },
+        "body": {
+          "telegramId": "={{ $json.fromId }}",
+          "username": "={{ $json.username }}",
+          "password": "={{ $json.password }}"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-send-login-result",
+      "name": "Send: Login Result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1520, 720],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $vars.BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "chat_id": "={{ $('Extract: Chat Info').first().json.chatId }}",
+          "text": "={{ $json.success ? '✅ کافه ' + $json.cafeName + ' با موفقیت متصل شد!' : '❌ نام کاربری یا رمز اشتباه است.' }}",
+          "reply_markup": "={\"inline_keyboard\":[[{\"text\":\"📋 منوی کافه\",\"callback_data\":\"menu\"}]]}"
+        },
+        "options": {}
+      }
+    },
+
+    {
+      "id": "node-get-myevents",
+      "name": "Get: My Events",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1080, 860],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $vars.BACKEND_URL }}/api/bot/user-events/{{ $json.fromId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-ravi-bot-secret", "value": "={{ $vars.BOT_SECRET }}" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-build-myevents",
+      "name": "Build: My Events Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 860],
+      "parameters": {
+        "jsCode": "const events = $input.first().json.events || [];\nconst chatId = $('Extract: Chat Info').first().json.chatId;\n\nif (events.length === 0) {\n  return [{ json: { chat_id: chatId, text: '📅 هنوز در هیچ رویدادی ثبت‌نام نکردی!', reply_markup: JSON.stringify({ inline_keyboard: [[{ text: '🏠 منو', callback_data: 'menu' }]] }) } }];\n}\n\nlet text = '📅 رویدادهای من:\\n\\n';\nevents.slice(0,5).forEach((ev, i) => {\n  const st = ev.status === 'confirmed' ? '✅' : ev.status === 'cancelled' ? '❌' : '⏳';\n  const d = new Date(ev.date).toLocaleDateString('fa-IR', { weekday: 'short', month: 'short', day: 'numeric' });\n  text += `${i+1}. ${st} ${ev.title}\\n   📅 ${d}\\n\\n`;\n});\n\nreturn [{ json: { chat_id: chatId, text, reply_markup: JSON.stringify({ inline_keyboard: [[{ text: '🏠 منو', callback_data: 'menu' }]] }) } }];"
+      }
+    },
+    {
+      "id": "node-send-myevents",
+      "name": "Send: My Events",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1520, 860],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $vars.BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "chat_id": "={{ $json.chat_id }}",
+          "text": "={{ $json.text }}",
+          "reply_markup": "={{ $json.reply_markup }}"
+        },
+        "options": {}
+      }
+    },
+
+    {
+      "id": "node-send-support",
+      "name": "Send: Support",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1080, 1000],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $vars.BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "chat_id": "={{ $json.chatId }}",
+          "text": "❓ پشتیبانی راوی\n\nسوالت رو بنویس تا هوش مصنوعی جواب بده.\nیا از طریق تلگرام پشتیبانی تماس بگیر:",
+          "reply_markup": "{\"inline_keyboard\":[[{\"text\":\"💬 پشتیبانی تلگرام\",\"url\":\"https://t.me/ravi_support\"}],[{\"text\":\"🏠 منوی اصلی\",\"callback_data\":\"menu\"}]]}"
+        },
+        "options": {}
+      }
+    },
+
+    {
+      "id": "node-unknown",
+      "name": "Send: Unknown Command",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1080, 1140],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $vars.BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "chat_id": "={{ $json.chatId }}",
+          "text": "🤔 این دستور رو نمی‌شناسم!\n/menu بزن تا منو رو ببینی.",
+          "reply_markup": "{\"keyboard\":[[{\"text\":\"📅 رویدادهای من\"},{\"text\":\"❓ پشتیبانی\"}]],\"resize_keyboard\":true,\"persistent\":true}"
+        },
+        "options": {}
+      }
+    }
+  ],
+
+  "connections": {
+    "Telegram Trigger": {
+      "main": [[{ "node": "Extract: Chat Info", "type": "main", "index": 0 }]]
+    },
+    "Extract: Chat Info": {
+      "main": [
+        [{ "node": "Route: Callback or Message?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route: Callback or Message?": {
+      "main": [
+        [{ "node": "Route: Which Callback?", "type": "main", "index": 0 }],
+        [{ "node": "Route: Which Command?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route: Which Callback?": {
+      "main": [
+        [{ "node": "Check: Is Cafe Admin?", "type": "main", "index": 0 }],
+        [{ "node": "Get: Upcoming Events", "type": "main", "index": 0 }],
+        [{ "node": "Get: Attendance List", "type": "main", "index": 0 }],
+        [{ "node": "Toggle: Mark Attendance", "type": "main", "index": 0 }],
+        [{ "node": "Get: List for Finalize", "type": "main", "index": 0 }],
+        [{ "node": "Check: Is Cafe Admin?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route: Which Command?": {
+      "main": [
+        [{ "node": "Check: Is Cafe Admin?", "type": "main", "index": 0 }],
+        [{ "node": "Get: Upcoming Events", "type": "main", "index": 0 }],
+        [{ "node": "Parse: Cafe Login", "type": "main", "index": 0 }],
+        [{ "node": "Get: My Events", "type": "main", "index": 0 }],
+        [{ "node": "Send: Support", "type": "main", "index": 0 }],
+        [{ "node": "Send: Unknown Command", "type": "main", "index": 0 }]
+      ]
+    },
+    "Check: Is Cafe Admin?": {
+      "main": [[{ "node": "Merge: Add Context", "type": "main", "index": 0 }]]
+    },
+    "Merge: Add Context": {
+      "main": [[{ "node": "Route: Cafe or User?", "type": "main", "index": 0 }]]
+    },
+    "Route: Cafe or User?": {
+      "main": [
+        [{ "node": "Send: Cafe Main Menu", "type": "main", "index": 0 }],
+        [{ "node": "Send: User Main Menu", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get: Upcoming Events": {
+      "main": [[{ "node": "Build: Event Buttons", "type": "main", "index": 0 }]]
+    },
+    "Build: Event Buttons": {
+      "main": [[{ "node": "Send: Event Buttons", "type": "main", "index": 0 }]]
+    },
+    "Get: Attendance List": {
+      "main": [
+        [{ "node": "Build: Attendance Buttons", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build: Attendance Buttons": {
+      "main": [
+        [{ "node": "Send: Attendance List", "type": "main", "index": 0 }]
+      ]
+    },
+    "Toggle: Mark Attendance": {
+      "main": [
+        [{ "node": "Answer: Callback Query", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get: List for Finalize": {
+      "main": [
+        [{ "node": "POST: Finalize Attendance", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST: Finalize Attendance": {
+      "main": [[{ "node": "Send: Finalize Done", "type": "main", "index": 0 }]]
+    },
+    "Parse: Cafe Login": {
+      "main": [[{ "node": "POST: Cafe Login", "type": "main", "index": 0 }]]
+    },
+    "POST: Cafe Login": {
+      "main": [[{ "node": "Send: Login Result", "type": "main", "index": 0 }]]
+    },
+    "Get: My Events": {
+      "main": [
+        [{ "node": "Build: My Events Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build: My Events Message": {
+      "main": [[{ "node": "Send: My Events", "type": "main", "index": 0 }]]
+    }
+  },
+
+  "settings": {
+    "timezone": "Asia/Tehran",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none"
+  },
+  "staticData": null,
+  "tags": [],
+  "pinData": {}
+}

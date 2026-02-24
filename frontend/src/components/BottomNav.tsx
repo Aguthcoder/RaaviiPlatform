@@ -1,16 +1,23 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { User, Bell, Calendar, Plus, Gamepad2, BookOpen } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  User,
+  Bell,
+  Calendar,
+  Gamepad2,
+  BookOpen,
+  LogOut,
+  LayoutDashboard,
+  Shield,
+} from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { isAdminPhone } from "@/lib/api";
 
-import { User, Bell, Calendar, Plus, Gamepad2, BookOpen, HeadphonesIcon } from "lucide-react";
-
 const USER_NAV = [
+  { name: "داشبورد", href: "/dashboard", icon: LayoutDashboard },
   { name: "پروفایل", href: "/dashboard/profile", icon: User },
   { name: "بازی", href: "/dashboard/game", icon: Gamepad2 },
-  { name: "مجله", href: "/articles", icon: BookOpen },
   { name: "رزرو", href: "/events", icon: Calendar },
 ];
 
@@ -18,18 +25,17 @@ const ADMIN_NAV = [
   { name: "پروفایل", href: "/dashboard/profile", icon: User },
   { name: "اعلان‌ها", href: "/dashboard/notifications", icon: Bell },
   { name: "رزرو", href: "/events", icon: Calendar },
-  { name: "پنل ادمین", href: "/admin/dashboard", icon: Plus },
+  { name: "پنل ادمین", href: "/admin/dashboard", icon: Shield },
 ];
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const { state } = useApp();
+  const router = useRouter();
+  const { state, logout } = useApp();
 
   const hiddenPaths = ["/login", "/test", "/(auth)", "/verify-mobile"];
   if (hiddenPaths.some((p) => pathname.startsWith(p))) return null;
 
-  // ✅ اگه هنوز در حال لود هستیم، BottomNav رو اصلاً نشون نده
-  // این جلوگیری می‌کنه از flash پنل کاربر عادی → ادمین
   if (state.isLoading) {
     return (
       <div
@@ -42,6 +48,11 @@ export default function BottomNav() {
   const isAdmin = isAdminPhone(state.user?.mobileNumber);
   const nav = isAdmin ? ADMIN_NAV : USER_NAV;
 
+  const handleLogout = () => {
+    logout();
+    router.push("/login");
+  };
+
   return (
     <div
       className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-700/60 shadow-[0_-4px_24px_rgba(0,0,0,0.25)]"
@@ -50,8 +61,8 @@ export default function BottomNav() {
       <div className="flex justify-around items-center h-[68px] w-full px-2 max-w-lg mx-auto">
         {nav.map((item) => {
           const isActive =
-            item.href === "/dashboard/profile"
-              ? pathname === item.href || pathname === "/dashboard"
+            item.href === "/dashboard"
+              ? pathname === "/dashboard"
               : item.href === "/admin/dashboard"
                 ? pathname.startsWith("/admin")
                 : pathname === item.href ||
@@ -83,6 +94,15 @@ export default function BottomNav() {
             </Link>
           );
         })}
+        {state.isLoggedIn && (
+          <button
+            onClick={handleLogout}
+            className="flex flex-col items-center justify-center gap-1 w-full h-full text-slate-400 hover:text-red-400 transition-all duration-300 active:scale-95"
+          >
+            <LogOut size={22} strokeWidth={2} />
+            <span className="text-[10px] font-medium">خروج</span>
+          </button>
+        )}
       </div>
     </div>
   );

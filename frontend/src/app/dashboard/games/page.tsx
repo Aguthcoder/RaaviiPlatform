@@ -88,7 +88,7 @@ export default function GamesPage() {
 
   const handleAnswer = (answerIndex: number) => {
     setSelectedAnswer(answerIndex);
-    
+
     if (answerIndex === quizQuestions[currentQuestion].correct) {
       setScore(score + 1);
     }
@@ -197,7 +197,7 @@ export default function GamesPage() {
   // صفحه بازی Quiz
   if (showResult) {
     const percentage = (score / quizQuestions.length) * 100;
-    
+
     return (
       <div className="min-h-screen pb-24 pt-8 px-4 relative">
         <BackgroundBlobs />
@@ -207,7 +207,7 @@ export default function GamesPage() {
             <div className="text-6xl mb-6">
               {percentage >= 70 ? "🎉" : percentage >= 50 ? "😊" : "😔"}
             </div>
-            
+
             <h2 className="text-3xl font-black text-navy-900 mb-4 font-estedad">
               {percentage >= 70
                 ? "عالی بود!"
@@ -262,9 +262,11 @@ export default function GamesPage() {
             <span className="text-slate-600 font-bold">
               سوال {currentQuestion + 1} از {quizQuestions.length}
             </span>
-            <span className="text-raavi-orange font-bold">امتیاز: {score * 50}</span>
+            <span className="text-raavi-orange font-bold">
+              امتیاز: {score * 50}
+            </span>
           </div>
-          
+
           <div className="w-full bg-navy-200 rounded-full h-3">
             <div
               className="bg-raavi-orange h-3 rounded-full transition-all duration-500"
@@ -284,7 +286,8 @@ export default function GamesPage() {
           <div className="space-y-4">
             {quizQuestions[currentQuestion].options.map((option, index) => {
               const isSelected = selectedAnswer === index;
-              const isCorrect = index === quizQuestions[currentQuestion].correct;
+              const isCorrect =
+                index === quizQuestions[currentQuestion].correct;
               const showResult = selectedAnswer !== null;
 
               return (

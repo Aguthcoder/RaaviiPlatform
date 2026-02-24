@@ -1,3 +1,8 @@
+/**
+ * SmartProfile Entity — نسخه نهایی یکپارچه‌شده
+ * ترکیب هر دو فایل قدیم و جدید
+ * مسیر صحیح: src/modules/smart-profile/entities/smart-profile.entity.ts
+ */
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -10,22 +15,23 @@ import {
 import { User } from '../../users/entities/user.entity';
 
 export enum CommunicationType {
-  INTROVERT = 'introvert',   // درون‌گرا
-  EXTROVERT = 'extrovert',   // برون‌گرا
-  AMBIVERT = 'ambivert',     // ترکیبی
+  INTROVERT = 'introvert',
+  EXTROVERT = 'extrovert',
+  AMBIVERT = 'ambivert',
 }
 
 export enum DominantNeed {
-  SEEN = 'seen',             // دیده‌شدن
-  SECURITY = 'security',     // امنیت
-  MEANING = 'meaning',       // معنا
-  FUN = 'fun',               // سرگرمی
+  SEEN = 'seen',
+  SECURITY = 'security',
+  MEANING = 'meaning',
+  FUN = 'fun',
+  ENTERTAINMENT = 'entertainment',
 }
 
 export enum InteractionRhythm {
-  ACTIVE = 'active',         // فعال
-  CAUTIOUS = 'cautious',     // محتاط
-  OBSERVER = 'observer',     // ناظر
+  ACTIVE = 'active',
+  CAUTIOUS = 'cautious',
+  OBSERVER = 'observer',
 }
 
 @Entity('smart_profiles')
@@ -36,22 +42,25 @@ export class SmartProfile {
   @Column({ type: 'uuid', unique: true })
   user_id: string;
 
-  // ── تیپ ارتباطی (از خوداظهاری + رفتار) ──────────────────────────
   @Column({ type: 'varchar', nullable: true })
   communication_type: CommunicationType | null;
 
   @Column({ type: 'float', default: 50 })
-  introvert_score: number; // 0=extrovert, 100=introvert
+  extroversion_score: number;
 
-  // ── نیاز غالب ──────────────────────────────────────────────────
+  get introvert_score(): number {
+    return 100 - this.extroversion_score;
+  }
+
+  @Column({ type: 'float', default: 50 })
+  energy_level: number;
+
   @Column({ type: 'varchar', nullable: true })
   dominant_need: DominantNeed | null;
 
-  // ── ریتم تعامل ─────────────────────────────────────────────────
   @Column({ type: 'varchar', nullable: true })
   interaction_rhythm: InteractionRhythm | null;
 
-  // ── سابقه رویدادها ──────────────────────────────────────────────
   @Column({ type: 'int', default: 0 })
   total_events_attended: number;
 
@@ -59,9 +68,8 @@ export class SmartProfile {
   total_events_booked: number;
 
   @Column({ type: 'float', default: 0 })
-  return_rate: number; // نرخ بازگشت
+  return_rate: number;
 
-  // ── نرخ عدم حضور (برای ساسپند) ──────────────────────────────────
   @Column({ type: 'int', default: 0 })
   no_show_count: number;
 
@@ -74,28 +82,46 @@ export class SmartProfile {
   @Column({ type: 'timestamp', nullable: true })
   suspended_at: Date;
 
-  // ── اولویت لوکیشن در ایونت‌ها ───────────────────────────────────
+  @Column({ default: false })
+  suspension_approved_by_admin: boolean;
+
   @Column({ type: 'varchar', nullable: true })
   location_preference: 'neighborhood' | 'city_wide' | null;
 
   @Column({ type: 'varchar', nullable: true })
   preferred_neighborhood: string;
 
-  // ── رفتار در گروه‌های تلگرامی ──────────────────────────────────
+  @Column({ type: 'simple-array', nullable: true })
+  neighborhood_preferences: string[];
+
   @Column({ type: 'jsonb', nullable: true })
   telegram_behavior: {
     avg_messages_per_event?: number;
     is_initiator?: boolean;
     is_bridge?: boolean;
-    response_time_avg?: number; // seconds
+    response_time_avg?: number;
     last_group_activity?: string;
   };
 
-  // ── نیازهای شناسایی‌شده برای رویداد بعدی ─────────────────────
-  @Column({ type: 'simple-array', nullable: true })
-  next_event_interests: string[]; // سینما، کوه‌نوردی، کافه، ...
+  @Column({ type: 'float', nullable: true })
+  telegram_message_rate: number;
 
-  // ── واکنش به گروه‌های مختلف ────────────────────────────────────
+  @Column({ type: 'float', nullable: true })
+  telegram_response_time: number;
+
+  @Column({ type: 'int', nullable: true })
+  telegram_messages_sent: number;
+
+  @Column({ type: 'simple-array', nullable: true })
+  next_event_interests: string[];
+
+  get extracted_interests(): string[] {
+    return this.next_event_interests;
+  }
+
+  @Column({ type: 'simple-array', nullable: true })
+  preferred_event_types: string[];
+
   @Column({ type: 'jsonb', nullable: true })
   group_reactions: {
     eventId: string;
@@ -103,11 +129,15 @@ export class SmartProfile {
     tags: string[];
   }[];
 
-  // ── امتیاز انرژی ────────────────────────────────────────────────
-  @Column({ type: 'float', default: 50 })
-  energy_level: number; // 0=low, 100=high
+  @Column({ type: 'jsonb', nullable: true })
+  group_reaction_history: Record<string, number>;
 
-  // ── الگوریتم مچینگ: وزن‌های شخصی‌سازی‌شده ─────────────────────
+  @Column({ type: 'float', default: 0 })
+  smart_score: number;
+
+  @Column({ type: 'float', default: 0 })
+  avg_match_satisfaction: number;
+
   @Column({ type: 'jsonb', nullable: true })
   matching_weights: {
     age_importance?: number;
@@ -115,7 +145,6 @@ export class SmartProfile {
     personality_importance?: number;
   };
 
-  // ── آخرین بروزرسانی توسط AI ─────────────────────────────────────
   @Column({ type: 'timestamp', nullable: true })
   last_ai_update: Date;
 
@@ -125,6 +154,16 @@ export class SmartProfile {
     strengths?: string[];
     suggestions?: string[];
   };
+
+  @Column({ type: 'jsonb', nullable: true })
+  test_results_summary: Record<string, any>;
+
+  @Column({ type: 'timestamp', nullable: true })
+  last_event_attended_at: Date;
+
+  // ✅ اضافه شد — برای ردیابی آخرین یادآوری SMS
+  @Column({ type: 'timestamp', nullable: true })
+  last_reminder_at: Date;
 
   @CreateDateColumn()
   created_at: Date;

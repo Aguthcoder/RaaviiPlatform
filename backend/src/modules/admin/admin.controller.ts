@@ -16,7 +16,7 @@ export const ADMIN_PHONES = [
   '09929564895',
   '09356815523',
   '09933830958',
-  '09055508305',
+  
   '09053241505',
 ];
 
@@ -31,7 +31,7 @@ function requireAdmin(user: any) {
   if (!isAdminUser(user)) throw new ForbiddenException('دسترسی ادمین لازم است');
 }
 
-@Controller('api/admin')
+@Controller('admin')
 @UseGuards(JwtAuthGuard)
 export class AdminController {
   constructor(

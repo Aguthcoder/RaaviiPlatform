@@ -18,7 +18,7 @@ function isAdminUser(user: any): boolean {
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads/events';
 
-@Controller('api/upload')
+@Controller('upload')
 @UseGuards(JwtAuthGuard)
 export class UploadController {
   @Post('event-image')

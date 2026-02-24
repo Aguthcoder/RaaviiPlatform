@@ -1,16 +1,25 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { MessageCircle, X, Send, Bot, Sparkles } from "lucide-react";
+import { MessageCircle, X, Send, Sparkles, Trash2 } from "lucide-react";
+import { useApp } from "@/context/AppContext";
 
+const AI_BASE = "https://api.gapgpt.app/v1";
 const API_KEY = "sk-fRQfQLXc8pkuNIIf6eSokMD2KU1BdsLUXXj4gtv4yQLrIlxQ";
 const AI_MODEL = "claude-opus-4-6";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
-  timestamp: Date;
+  timestamp: string;
 }
+
+const WELCOME: Message = {
+  role: "assistant",
+  content:
+    "سلام! 👋 من دستیار هوشمند راوی هستم. چطور می‌تونم کمکت کنم؟\n\nمی‌تونی بپرسی:\n• کدوم برنامه مناسب منه؟\n• نحوه رزرو رویداد\n• قوانین راوی",
+  timestamp: new Date().toISOString(),
+};
 
 const SYSTEM_PROMPT = `شما دستیار هوشمند پلتفرم راوی هستید. راوی یک پلتفرم دورهمی اجتماعی هوشمند است که افراد را بر اساس شخصیت، سن و علایق با هم آشنا می‌کند.
 
@@ -28,20 +37,74 @@ const SYSTEM_PROMPT = `شما دستیار هوشمند پلتفرم راوی ه
 
 همیشه به فارسی پاسخ بده. مختصر، دوستانه و مفید باش.`;
 
+// کلید localStorage برای هر کاربر
+function getChatKey(userId?: string | null) {
+  return userId ? `ravi_chat_${userId}` : null; // guest: هیچی سیو نمیشه
+}
+
 export default function AIChatWidget() {
+  const { state } = useApp();
+
+  // شناسه یکتای کاربر (موبایل یا id)
+  const userId =
+    (state.user as any)?.mobileNumber || (state.user as any)?.id || null;
+  const isLoggedIn = state.isLoggedIn && !!userId;
+  const chatKey = getChatKey(userId);
+
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: "سلام! 👋 من دستیار هوشمند راوی هستم. چطور می‌تونم کمکت کنم؟\n\nمی‌تونی بپرسی:\n• کدوم برنامه مناسب منه؟\n• نحوه رزرو رویداد\n• قوانین راوی",
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(false);
+  const prevUserIdRef = useRef<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // ── بارگذاری/ریست هنگام تغییر وضعیت لاگین یا کاربر ──────────────
+  useEffect(() => {
+    const prevId = prevUserIdRef.current;
+
+    if (!isLoggedIn || !chatKey) {
+      // خروج: ریست به پیام خوشامد
+      if (prevId !== null) {
+        setMessages([WELCOME]);
+        setIsOpen(false);
+      }
+      prevUserIdRef.current = null;
+      return;
+    }
+
+    // کاربر جدید لاگین کرده یا همان کاربر قبلی برگشته
+    if (prevId !== userId) {
+      // لود تاریخچه از localStorage
+      try {
+        const saved = localStorage.getItem(chatKey);
+        if (saved) {
+          const parsed: Message[] = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed);
+          } else {
+            setMessages([WELCOME]);
+          }
+        } else {
+          setMessages([WELCOME]);
+        }
+      } catch {
+        setMessages([WELCOME]);
+      }
+      prevUserIdRef.current = userId;
+    }
+  }, [isLoggedIn, userId, chatKey]);
+
+  // ── ذخیره خودکار در localStorage (فقط برای کاربر لاگین‌شده) ───────
+  useEffect(() => {
+    if (!chatKey || !isLoggedIn) return;
+    try {
+      // حداکثر ۵۰ پیام آخر
+      localStorage.setItem(chatKey, JSON.stringify(messages.slice(-50)));
+    } catch {}
+  }, [messages, chatKey, isLoggedIn]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -54,33 +117,32 @@ export default function AIChatWidget() {
     }
   }, [isOpen]);
 
-  async function sendMessage() {
-    const text = input.trim();
+  async function sendMessage(overrideText?: string) {
+    const text = (overrideText ?? input).trim();
     if (!text || isLoading) return;
 
-    const userMessage: Message = {
+    const userMsg: Message = {
       role: "user",
       content: text,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsLoading(true);
 
     try {
-      const history = messages.concat(userMessage).map((m) => ({
+      const history = [...messages, userMsg].map((m) => ({
         role: m.role,
         content: m.content,
       }));
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch(`${AI_BASE}/messages`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": API_KEY,
+          Authorization: `Bearer ${API_KEY}`,
           "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
         },
         body: JSON.stringify({
           model: AI_MODEL,
@@ -90,26 +152,30 @@ export default function AIChatWidget() {
         }),
       });
 
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
       const data = await response.json();
-      const reply = data.content?.[0]?.text || "متاسفم، مشکلی پیش اومد. دوباره تلاش کن.";
+      const reply =
+        data.content?.[0]?.text ||
+        data.choices?.[0]?.message?.content ||
+        "پاسخی دریافت نشد. دوباره تلاش کن.";
 
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
           content: reply,
-          timestamp: new Date(),
+          timestamp: new Date().toISOString(),
         },
       ]);
-
       if (!isOpen) setHasNewMessage(true);
-    } catch (err) {
+    } catch {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
           content: "اتصال به دستیار موقتاً قطع شده. لطفاً دوباره تلاش کن. 🔄",
-          timestamp: new Date(),
+          timestamp: new Date().toISOString(),
         },
       ]);
     } finally {
@@ -117,13 +183,28 @@ export default function AIChatWidget() {
     }
   }
 
-  function formatTime(date: Date) {
-    return date.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" });
+  function clearHistory() {
+    setMessages([WELCOME]);
+    if (chatKey) {
+      try {
+        localStorage.removeItem(chatKey);
+      } catch {}
+    }
+  }
+
+  function formatTime(iso: string) {
+    try {
+      return new Date(iso).toLocaleTimeString("fa-IR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "";
+    }
   }
 
   return (
     <div className="fixed bottom-6 left-6 z-50" dir="rtl">
-      {/* چت ویجت */}
       {isOpen && (
         <div
           className="absolute bottom-16 left-0 w-[340px] sm:w-[380px] rounded-2xl overflow-hidden flex flex-col"
@@ -151,12 +232,23 @@ export default function AIChatWidget() {
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition"
-            >
-              <X size={16} />
-            </button>
+            <div className="flex items-center gap-1">
+              {isLoggedIn && (
+                <button
+                  onClick={clearHistory}
+                  title="پاک کردن تاریخچه"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-red-400 hover:bg-white/10 transition"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+              <button
+                onClick={() => setIsOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </div>
 
           {/* پیام‌ها */}
@@ -174,7 +266,10 @@ export default function AIChatWidget() {
                   }`}
                   style={
                     msg.role === "assistant"
-                      ? { background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)" }
+                      ? {
+                          background: "rgba(255,255,255,0.08)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                        }
                       : {}
                   }
                 >
@@ -208,15 +303,12 @@ export default function AIChatWidget() {
           </div>
 
           {/* سوالات سریع */}
-          {messages.length === 1 && (
+          {messages.length <= 1 && (
             <div className="px-4 pb-2 flex flex-wrap gap-2 shrink-0">
               {["چه برنامه‌ای مناسبه؟", "قوانین راوی", "نحوه رزرو"].map((q) => (
                 <button
                   key={q}
-                  onClick={() => {
-                    setInput(q);
-                    setTimeout(sendMessage, 0);
-                  }}
+                  onClick={() => sendMessage(q)}
                   className="text-xs px-3 py-1.5 rounded-full text-orange-400 hover:bg-orange-500 hover:text-white transition"
                   style={{ border: "1px solid rgba(255,107,0,0.3)" }}
                 >
@@ -236,13 +328,15 @@ export default function AIChatWidget() {
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && !e.shiftKey && sendMessage()
+                }
                 placeholder="سوالت رو بپرس..."
                 disabled={isLoading}
                 className="flex-1 bg-white/10 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition"
               />
               <button
-                onClick={sendMessage}
+                onClick={() => sendMessage()}
                 disabled={isLoading || !input.trim()}
                 className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-white hover:bg-orange-400 disabled:opacity-50 disabled:cursor-not-allowed transition shrink-0"
               >
@@ -253,24 +347,16 @@ export default function AIChatWidget() {
         </div>
       )}
 
-      {/* دکمه باز/بسته کردن */}
+      {/* دکمه باز/بسته */}
       <button
         onClick={() => setIsOpen((prev) => !prev)}
         className="w-14 h-14 bg-orange-500 hover:bg-orange-400 rounded-2xl flex items-center justify-center text-white shadow-2xl transition-all active:scale-95 relative"
         style={{ boxShadow: "0 8px 32px rgba(255,107,0,0.4)" }}
       >
-        {isOpen ? (
-          <X size={24} />
-        ) : (
-          <MessageCircle size={24} />
-        )}
-
-        {/* نشانگر پیام جدید */}
+        {isOpen ? <X size={24} /> : <MessageCircle size={24} />}
         {hasNewMessage && !isOpen && (
           <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white animate-ping" />
         )}
-
-        {/* pulse effect */}
         {!isOpen && (
           <div className="absolute inset-0 rounded-2xl bg-orange-500 animate-ping opacity-20" />
         )}

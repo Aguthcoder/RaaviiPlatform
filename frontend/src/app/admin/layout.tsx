@@ -1,4 +1,9 @@
 "use client";
+/**
+ * layout.tsx ادمین — نسخه به‌روزشده
+ * تغییر: اضافه شدن لینک CRM داشبورد به منو
+ * مسیر: src/app/admin/layout.tsx
+ */
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -12,6 +17,8 @@ import {
   Plus,
   Home,
   AlertTriangle,
+  Coffee,
+  Brain,
 } from "lucide-react";
 import { useState } from "react";
 import AnimatedBackground from "@/components/AnimatedBackground";
@@ -21,6 +28,9 @@ const NAV_ITEMS = [
   { href: "/admin/events", label: "مدیریت همنشینی‌ها", icon: Calendar },
   { href: "/admin/users", label: "کاربران", icon: Users },
   { href: "/admin/bookings", label: "رزروها", icon: Shield },
+  { href: "/admin/cafe-telegram", label: "ربات کافه‌ها", icon: Coffee },
+  // ✅ لینک جدید CRM
+  { href: "/admin/crm", label: "CRM هوشمند", icon: Brain, highlight: true },
 ];
 
 export default function AdminLayout({
@@ -48,7 +58,6 @@ export default function AdminLayout({
         ).catch(() => {});
       }
     } catch {}
-
     if (typeof window !== "undefined") {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
@@ -56,13 +65,16 @@ export default function AdminLayout({
       sessionStorage.clear();
       document.cookie = "token=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
     }
-
     dispatch?.({ type: "LOGOUT" } as any);
     router.push("/auth");
   }
 
   return (
-    <div className="min-h-screen relative" dir="rtl">
+    <div
+      className="min-h-screen relative"
+      dir="rtl"
+      style={{ background: "#0a1628" }}
+    >
       <AnimatedBackground />
 
       {/* ── سایدبار دسکتاپ ── */}
@@ -107,7 +119,7 @@ export default function AdminLayout({
           </div>
         </div>
 
-        {/* ── دکمه ایجاد همنشینی جدید ── */}
+        {/* دکمه ایجاد همنشینی جدید */}
         <div className="px-4 pt-4">
           <Link
             href="/admin/events/new"
@@ -123,8 +135,8 @@ export default function AdminLayout({
         </div>
 
         {/* ناوبری */}
-        <nav className="flex-1 px-4 pt-3 space-y-1">
-          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        <nav className="flex-1 px-4 pt-3 space-y-1 overflow-y-auto">
+          {NAV_ITEMS.map(({ href, label, icon: Icon, highlight }) => {
             const active =
               pathname === href ||
               (href !== "/admin/dashboard" && pathname.startsWith(href));
@@ -139,12 +151,24 @@ export default function AdminLayout({
                 }`}
                 style={
                   active
-                    ? { background: "rgba(249,115,22,0.15)", color: "#fb923c" }
+                    ? {
+                        background: highlight
+                          ? "rgba(99,102,241,0.15)"
+                          : "rgba(249,115,22,0.15)",
+                        color: highlight ? "#818cf8" : "#fb923c",
+                      }
                     : {}
                 }
               >
-                <Icon size={18} />
-                {label}
+                <Icon
+                  size={18}
+                  style={highlight && !active ? { color: "#818cf8" } : {}}
+                />
+                <span>{label}</span>
+                {/* نقطه نارنجی برای CRM */}
+                {highlight && !active && (
+                  <span className="mr-auto w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+                )}
               </Link>
             );
           })}
@@ -169,7 +193,7 @@ export default function AdminLayout({
         </div>
       </aside>
 
-      {/* ── محتوا ── */}
+      {/* محتوا */}
       <main className="md:mr-64 relative z-10 min-h-screen">{children}</main>
 
       {/* ── نوار پایین موبایل ── */}
@@ -180,7 +204,7 @@ export default function AdminLayout({
           backdropFilter: "blur(16px)",
         }}
       >
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {NAV_ITEMS.slice(0, 5).map(({ href, label, icon: Icon }) => {
           const active =
             pathname === href ||
             (href !== "/admin/dashboard" && pathname.startsWith(href));
@@ -188,28 +212,27 @@ export default function AdminLayout({
             <Link
               key={href}
               href={href}
-              className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              className={`flex flex-col items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 active ? "text-orange-400" : "text-slate-500"
               }`}
             >
               <Icon size={20} />
-              <span>{label}</span>
+              <span className="text-[10px]">{label}</span>
             </Link>
           );
         })}
-        {/* دکمه + موبایل */}
         <Link
           href="/admin/events/new"
-          className="flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-orange-400"
+          className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold text-orange-400"
         >
           <div className="w-8 h-8 rounded-xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/30">
             <Plus size={18} className="text-white" />
           </div>
-          <span className="text-orange-400">جدید</span>
+          <span className="text-orange-400 text-[10px]">جدید</span>
         </Link>
       </nav>
 
-      {/* ── مودال تأیید خروج ── */}
+      {/* مودال تأیید خروج */}
       {showLogoutConfirm && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"

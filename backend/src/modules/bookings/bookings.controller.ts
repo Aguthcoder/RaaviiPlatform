@@ -24,7 +24,7 @@ const API_BASE = process.env.FRONTEND_URL || 'http://localhost:3000';
 const ZARINPAL_MERCHANT = process.env.ZARINPAL_MERCHANT_ID || '';
 const IS_DEV = process.env.NODE_ENV !== 'production';
 
-@Controller('api/bookings')
+@Controller('bookings')
 @UseGuards(JwtAuthGuard)
 export class BookingsController {
   constructor(
@@ -132,7 +132,7 @@ export class BookingsController {
             callback_url: `${process.env.BACKEND_URL || 'http://localhost:4000'}/api/payments/verify?bookingId=${savedBooking.id}&paymentId=${savedPayment.id}`,
           }),
         });
-        const data = await res.json();
+        const data = await res.json() as any;
         if (data?.data?.code === 100) {
           paymentUrl = `https://www.zarinpal.com/pg/StartPay/${data.data.authority}`;
           savedPayment.gateway_transaction_id = data.data.authority;
@@ -175,10 +175,10 @@ export class BookingsController {
     return {
       id: booking.id,
       status: booking.status,
-      cancelledAt: booking.cancelledAt,
-      cancellationReason: booking.cancellationReason,
-      service: booking.service,
-      amount: booking.amountPaid,
+      cancelledAt: booking.cancelled_at,
+      cancellationReason: booking.cancellation_reason,
+      
+      amount: booking.amount_paid,
     };
   }
 }

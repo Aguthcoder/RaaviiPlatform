@@ -1,840 +1,1151 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { getEventImage } from "@/lib/dynamic-images";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createAdminEvent, uploadEventImage, isAdminPhone } from "@/lib/api";
 import { useApp } from "@/context/AppContext";
+import { fetchUserProfile } from "@/lib/api";
+import AnimatedBackground from "@/components/AnimatedBackground";
 import {
-  Upload,
-  Check,
-  ArrowRight,
-  Image as ImageIcon,
-  X,
   MapPin,
-  Lock,
-  Calendar,
-  Users,
+  Search,
+  ChevronLeft,
+  Home,
+  Sparkles,
   Tag,
-  FileText,
-  Info,
-  DollarSign,
-  Globe,
-  AlertCircle,
-  Loader2,
+  CalendarCheck,
+  Clock,
+  Users,
+  Lock,
 } from "lucide-react";
 
 const CATEGORIES = [
-  { id: "hambazi", label: "هم‌بازی", emoji: "🎮", desc: "بازی گروهی و سرگرمی" },
-  { id: "hamsohbat", label: "هم‌صحبت", emoji: "💬", desc: "گفتگو و تبادل نظر" },
-  { id: "hamneshin", label: "همنشین", emoji: "🤝", desc: "دورهمی و آشنایی" },
-  { id: "hampa", label: "هم‌پا", emoji: "🚶", desc: "فعالیت و طبیعت‌گردی" },
-  { id: "hamamooz", label: "هم‌آموز", emoji: "📚", desc: "یادگیری و کارگاه" },
-  { id: "hamkar", label: "همکار", emoji: "💼", desc: "کار مشترک و کوورکینگ" },
+  {
+    id: "hambazi",
+    title: "هم‌بازی",
+    img: "/categories/3.PNG",
+    banner: "یک شب هیجانی با بردگیم و بازی‌های گروهی",
+  },
+  {
+    id: "hamsohbat",
+    title: "هم‌صحبت",
+    img: "/categories/2.PNG",
+    banner: "گفتگوهای عمیق و صمیمی با افراد هم‌فکر",
+  },
+  {
+    id: "hamneshin",
+    title: "همنشین",
+    img: "/categories/1.PNG",
+    banner: "دورهمی امن و گرم با آدم‌های هم‌فرکانس",
+  },
+  {
+    id: "hampa",
+    title: "هم‌پا",
+    img: "/categories/6.PNG",
+    banner: "پیاده‌روی، گردش و تجربه در طبیعت",
+  },
+  {
+    id: "hamamooz",
+    title: "هم‌آموز",
+    img: "/categories/5.PNG",
+    banner: "یادگیری مهارت‌های جدید در کنار دیگران",
+  },
+  {
+    id: "hamkar",
+    title: "همکار",
+    img: "/categories/4.PNG",
+    banner: "همکاری در پروژه‌ها و کارهای مشترک",
+  },
   {
     id: "hamfekr",
-    label: "هم‌فکر",
-    emoji: "💡",
-    desc: "ایده‌پردازی و کارآفرینی",
+    title: "هم‌فکر",
+    img: "/categories/7.PNG",
+    banner: "تبادل ایده و رویا با ذهن‌های خلاق",
   },
-  { id: "hamteymi", label: "هم‌تیمی", emoji: "⚽", desc: "ورزش و تیم‌سازی" },
-  { id: "hamghesse", label: "هم‌قصه", emoji: "📖", desc: "داستان و خلاقیت" },
+  {
+    id: "hamteymi",
+    title: "هم‌تیمی",
+    img: "/categories/8.PNG",
+    banner: "فعالیت‌های ورزشی و تیمی مشترک",
+  },
+  {
+    id: "hamghesse",
+    title: "هم‌قصه",
+    img: "/categories/1.PNG",
+    banner: "خواندن و نوشتن و تجربه‌ی داستان",
+  },
 ];
 
-const CITIES = [
-  "تهران",
-  "مشهد",
-  "اصفهان",
-  "شیراز",
-  "تبریز",
-  "کرج",
-  "قم",
-  "اهواز",
-  "کرمانشاه",
-  "ارومیه",
-  "رشت",
-  "زاهدان",
-  "کرمان",
-  "همدان",
-  "یزد",
-  "بندرعباس",
-  "بوشهر",
-  "سنندج",
-  "ساری",
-  "گرگان",
-];
-
-const FEATURES_OPTIONS = [
-  "بدون محدودیت سنی",
-  "ویژه بانوان",
-  "مختلط",
-  "رایگان",
-  "با صرف نوشیدنی",
-  "حضوری",
-  "مبتدی‌ها خوش‌آمد",
-  "تجربه لازم است",
-  "شاد و انرژیک",
-  "جدی و تخصصی",
-  "طبیعت‌گردی",
-  "خانوادگی",
-];
-
-const STEPS = [
-  { label: "اطلاعات اصلی", icon: FileText },
-  { label: "زمان و ظرفیت", icon: Calendar },
-  { label: "مکان و دسته‌بندی", icon: MapPin },
-  { label: "ویژگی‌ها و تصویر", icon: ImageIcon },
-];
-
-const CARD: React.CSSProperties = {
-  background: "linear-gradient(145deg, #1B2A4A, #132038)",
-  border: "1px solid rgba(255,255,255,0.08)",
-};
-const INP =
-  "w-full rounded-xl border text-white p-3 text-sm outline-none focus:border-orange-500 placeholder-slate-500 transition-colors";
-const INP_S: React.CSSProperties = {
-  background: "rgba(255,255,255,0.05)",
-  borderColor: "rgba(255,255,255,0.12)",
-};
-
-export default function NewAdminEventPage() {
-  const router = useRouter();
-  const { state } = useApp();
-  const [step, setStep] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [msg, setMsg] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    category: "",
-    city: "",
-    location: "",
-    capacity: 20,
-    price: 0,
-    startDate: "",
-    endDate: "",
-    tags: "",
-    features: [] as string[],
-    targetPersonalityTraits: "",
-    isActive: true,
-    image_url: "",
-    is_online: false,
+// Deterministically pick 3-4 active categories per city (consistent across refreshes)
+function getActiveCategoriesForCity(city: string): string[] {
+  const allIds = CATEGORIES.map((c) => c.id);
+  let hash = 0;
+  for (let i = 0; i < city.length; i++)
+    hash = (hash * 31 + city.charCodeAt(i)) % 100000;
+  const count = (hash % 2) + 3; // 3 or 4
+  const shuffled = [...allIds].sort((a, b) => {
+    const ha = (hash + a.charCodeAt(0) * 17) % 100;
+    const hb = (hash + b.charCodeAt(0) * 17) % 100;
+    return ha - hb;
   });
+  return shuffled.slice(0, count);
+}
+
+const ALL_MOCK_EVENTS = [
+  // تهران
+  {
+    id: "ev-1",
+    category: "hambazi",
+    title: "دورهمی همبازی (بردگیم)، پنجشنبه ۲۳ بهمن",
+    subtitle: "بردگیم‌های استراتژیک برای ۴ تا ۱۲ نفر",
+    date: "۱۴۰۳/۱۱/۲۳",
+    time: "۱۵:۰۰",
+    weekday: "پنج‌شنبه",
+    location: "کافه بازی جام جم، تهران",
+    city: "تهران",
+    capacity: 12,
+    reserved: 12,
+    price: 150000,
+    img: "/categories/3.PNG",
+    tags: ["بردگیم", "گروهی"],
+  },
+  {
+    id: "ev-2",
+    category: "hambazi",
+    title: "هم‌بازی ۲۴ بهمن (مافیا)",
+    subtitle: "یک شب هیجانی با بازی مافیا",
+    date: "۱۴۰۳/۱۱/۲۴",
+    time: "۱۷:۰۰",
+    weekday: "جمعه",
+    location: "کافه لیلا، ونک، تهران",
+    city: "تهران",
+    capacity: 14,
+    reserved: 10,
+    price: 80000,
+    img: "/categories/3.PNG",
+    tags: ["مافیا", "کارآگاهی"],
+  },
+  {
+    id: "ev-4",
+    category: "hamneshin",
+    title: "قرار صبحانه (میز منتخب)",
+    subtitle: "صبحانه‌ی دنج با افراد هم‌فرکانس",
+    date: "۱۴۰۳/۱۱/۲۴",
+    time: "۱۰:۰۰",
+    weekday: "جمعه",
+    location: "کافه آهنگ صبح، سعادت‌آباد",
+    city: "تهران",
+    capacity: 6,
+    reserved: 6,
+    price: 120000,
+    img: "/categories/1.PNG",
+    tags: ["صبحانه", "کافه"],
+  },
+  {
+    id: "ev-5",
+    category: "hamneshin",
+    title: "قرار صبحانه، جمعه ۲۴ بهمن",
+    subtitle: "میز مشترک صبحانه با آدم‌های جدید",
+    date: "۱۴۰۳/۱۱/۲۴",
+    time: "۱۰:۰۰",
+    weekday: "جمعه",
+    location: "کافه بامداد، نیاوران، تهران",
+    city: "تهران",
+    capacity: 8,
+    reserved: 8,
+    price: 120000,
+    img: "/categories/1.PNG",
+    tags: ["صبحانه", "آشنایی"],
+  },
+  {
+    id: "ev-6",
+    category: "hamneshin",
+    title: "دورهمی همنشین آخر هفته",
+    subtitle: "شب‌نشینی صمیمی در فضایی دنج",
+    date: "۱۴۰۳/۱۱/۲۵",
+    time: "۱۸:۳۰",
+    weekday: "شنبه",
+    location: "خانه فرهنگ نیاوران، تهران",
+    city: "تهران",
+    capacity: 10,
+    reserved: 5,
+    price: 90000,
+    img: "/categories/1.PNG",
+    tags: ["شب‌نشینی", "دوستی"],
+  },
+  {
+    id: "ev-7",
+    category: "hamsohbat",
+    title: "قهوه و گفتگو – آرامش در دنیای شلوغ",
+    subtitle: "گفتگویی صمیمی پیرامون سبک زندگی آرام",
+    date: "۱۴۰۳/۱۱/۲۵",
+    time: "۱۶:۰۰",
+    weekday: "شنبه",
+    location: "کافه فلسفه، انقلاب، تهران",
+    city: "تهران",
+    capacity: 8,
+    reserved: 3,
+    price: 60000,
+    img: "/categories/2.PNG",
+    tags: ["گفتگو", "فلسفه"],
+  },
+  {
+    id: "ev-9",
+    category: "hampa",
+    title: "پیاده‌روی بامدادی توچال، جمعه ۲۴ بهمن",
+    subtitle: "صعود گروهی به توچال در هوای تازه",
+    date: "۱۴۰۳/۱۱/۲۴",
+    time: "۰۷:۰۰",
+    weekday: "جمعه",
+    location: "ایستگاه تله‌کابین توچال، تهران",
+    city: "تهران",
+    capacity: 15,
+    reserved: 11,
+    price: 40000,
+    img: "/categories/6.PNG",
+    tags: ["طبیعت", "کوهنوردی"],
+  },
+  {
+    id: "ev-11",
+    category: "hamamooz",
+    title: "کارگاه عکاسی موبایل، پنج‌شنبه ۲۳ بهمن",
+    subtitle: "یاد بگیر با موبایل مثل حرفه‌ای‌ها عکس بگیری",
+    date: "۱۴۰۳/۱۱/۲۳",
+    time: "۱۴:۰۰",
+    weekday: "پنج‌شنبه",
+    location: "استودیو عکس آفتاب، میرداماد",
+    city: "تهران",
+    capacity: 8,
+    reserved: 5,
+    price: 180000,
+    img: "/categories/5.PNG",
+    tags: ["عکاسی", "کارگاه"],
+  },
+  {
+    id: "ev-13",
+    category: "hamkar",
+    title: "روز کار اشتراکی (Co-working Day)",
+    subtitle: "کار در کنار هم در فضایی انرژی‌بخش",
+    date: "۱۴۰۳/۱۱/۲۵",
+    time: "۱۰:۰۰",
+    weekday: "شنبه",
+    location: "فضای کار مشترک هاب، کارگر شمالی",
+    city: "تهران",
+    capacity: 20,
+    reserved: 12,
+    price: 80000,
+    img: "/categories/4.PNG",
+    tags: ["کار", "فریلنسر"],
+  },
+  {
+    id: "ev-14",
+    category: "hamfekr",
+    title: "نشست ایده‌پردازی – استارتاپ و کارآفرینی",
+    subtitle: "تبادل ایده با کارآفرینان جوان تهران",
+    date: "۱۴۰۳/۱۱/۲۵",
+    time: "۱۸:۰۰",
+    weekday: "شنبه",
+    location: "خانه نوآوری، ولیعصر، تهران",
+    city: "تهران",
+    capacity: 16,
+    reserved: 9,
+    price: 50000,
+    img: "/categories/7.PNG",
+    tags: ["استارتاپ", "ایده"],
+  },
+  {
+    id: "ev-15",
+    category: "hamteymi",
+    title: "فوتبال دوستانه، جمعه ۲۴ بهمن",
+    subtitle: "بازی فوتبال در هوای آزاد",
+    date: "۱۴۰۳/۱۱/۲۴",
+    time: "۰۹:۰۰",
+    weekday: "جمعه",
+    location: "زمین چمن پارک لاله، تهران",
+    city: "تهران",
+    capacity: 14,
+    reserved: 8,
+    price: 30000,
+    img: "/categories/8.PNG",
+    tags: ["فوتبال", "ورزش"],
+  },
+  {
+    id: "ev-16",
+    category: "hamghesse",
+    title: "حلقه داستان‌سرایی، پنج‌شنبه ۲۳ بهمن",
+    subtitle: "خلق و شنیدن داستان‌های کوتاه در یک شب خاص",
+    date: "۱۴۰۳/۱۱/۲۳",
+    time: "۱۸:۰۰",
+    weekday: "پنج‌شنبه",
+    location: "خانه هنرمندان، لاله‌زار، تهران",
+    city: "تهران",
+    capacity: 12,
+    reserved: 8,
+    price: 60000,
+    img: "/categories/1.PNG",
+    tags: ["داستان", "هنر"],
+  },
+  // اصفهان
+  {
+    id: "ev-20",
+    category: "hamneshin",
+    title: "همنشین اصفهانی، کافه سی‌وسه‌پل",
+    subtitle: "دورهمی در کنار زاینده‌رود",
+    date: "۱۴۰۳/۱۱/۲۵",
+    time: "۱۷:۰۰",
+    weekday: "شنبه",
+    location: "کافه پل، اصفهان",
+    city: "اصفهان",
+    capacity: 8,
+    reserved: 3,
+    price: 90000,
+    img: "/categories/1.PNG",
+    tags: ["اصفهان", "کافه"],
+  },
+  {
+    id: "ev-21",
+    category: "hamsohbat",
+    title: "گفتگو در بازار اصفهان",
+    subtitle: "نشست هم‌صحبت در دل تاریخ",
+    date: "۱۴۰۳/۱۱/۲۶",
+    time: "۱۶:۰۰",
+    weekday: "یکشنبه",
+    location: "بازار بزرگ اصفهان",
+    city: "اصفهان",
+    capacity: 10,
+    reserved: 4,
+    price: 50000,
+    img: "/categories/2.PNG",
+    tags: ["اصفهان", "تاریخ"],
+  },
+  // شیراز
+  {
+    id: "ev-30",
+    category: "hampa",
+    title: "گردش در باغ ارم شیراز",
+    subtitle: "پیاده‌روی گروهی در باغ تاریخی ارم",
+    date: "۱۴۰۳/۱۱/۲۴",
+    time: "۰۹:۰۰",
+    weekday: "جمعه",
+    location: "باغ ارم، شیراز",
+    city: "شیراز",
+    capacity: 12,
+    reserved: 5,
+    price: 35000,
+    img: "/categories/6.PNG",
+    tags: ["طبیعت", "شیراز"],
+  },
+  {
+    id: "ev-31",
+    category: "hambazi",
+    title: "شب بردگیم شیرازی",
+    subtitle: "بازی و شادی با آدم‌های جدید",
+    date: "۱۴۰۳/۱۱/۲۵",
+    time: "۱۸:۰۰",
+    weekday: "شنبه",
+    location: "کافه گیم‌لند، شیراز",
+    city: "شیراز",
+    capacity: 10,
+    reserved: 4,
+    price: 70000,
+    img: "/categories/3.PNG",
+    tags: ["بازی", "شیراز"],
+  },
+  // مشهد
+  {
+    id: "ev-40",
+    category: "hamamooz",
+    title: "کارگاه خوشنویسی مشهد",
+    subtitle: "یادگیری خوشنویسی با استاد",
+    date: "۱۴۰۳/۱۱/۲۵",
+    time: "۱۵:۰۰",
+    weekday: "شنبه",
+    location: "خانه هنر، مشهد",
+    city: "مشهد",
+    capacity: 10,
+    reserved: 6,
+    price: 120000,
+    img: "/categories/5.PNG",
+    tags: ["هنر", "مشهد"],
+  },
+  {
+    id: "ev-41",
+    category: "hamneshin",
+    title: "دورهمی مشهدی‌ها",
+    subtitle: "شب‌نشینی گرم و صمیمی",
+    date: "۱۴۰۳/۱۱/۲۶",
+    time: "۱۹:۰۰",
+    weekday: "یکشنبه",
+    location: "کافه سنتی طوس، مشهد",
+    city: "مشهد",
+    capacity: 8,
+    reserved: 3,
+    price: 80000,
+    img: "/categories/1.PNG",
+    tags: ["دورهمی", "مشهد"],
+  },
+  // تبریز
+  {
+    id: "ev-50",
+    category: "hamfekr",
+    title: "نشست کارآفرینی تبریز",
+    subtitle: "تبادل ایده با نوآوران آذربایجان",
+    date: "۱۴۰۳/۱۱/۲۴",
+    time: "۱۷:۰۰",
+    weekday: "جمعه",
+    location: "اتاق بازرگانی تبریز",
+    city: "تبریز",
+    capacity: 20,
+    reserved: 8,
+    price: 45000,
+    img: "/categories/7.PNG",
+    tags: ["ایده", "تبریز"],
+  },
+  {
+    id: "ev-51",
+    category: "hamteymi",
+    title: "والیبال دوستانه، تبریز",
+    subtitle: "بازی ورزشی در هوای سالم",
+    date: "۱۴۰۳/۱۱/۲۵",
+    time: "۰۸:۳۰",
+    weekday: "شنبه",
+    location: "سالن ورزشی شهدا، تبریز",
+    city: "تبریز",
+    capacity: 12,
+    reserved: 7,
+    price: 25000,
+    img: "/categories/8.PNG",
+    tags: ["ورزش", "تبریز"],
+  },
+  // کرج
+  {
+    id: "ev-60",
+    category: "hamkar",
+    title: "کو-ورکینگ کرج",
+    subtitle: "کار مشترک در فضایی انرژی‌بخش",
+    date: "۱۴۰۳/۱۱/۲۶",
+    time: "۱۰:۰۰",
+    weekday: "یکشنبه",
+    location: "هاب نوآوری کرج",
+    city: "کرج",
+    capacity: 15,
+    reserved: 6,
+    price: 60000,
+    img: "/categories/4.PNG",
+    tags: ["کار", "کرج"],
+  },
+  {
+    id: "ev-61",
+    category: "hamsohbat",
+    title: "قهوه صبحگاهی کرج",
+    subtitle: "گفتگوی سازنده قبل از شروع روز",
+    date: "۱۴۰۳/۱۱/۲۵",
+    time: "۰۸:۰۰",
+    weekday: "شنبه",
+    location: "کافه سپیده، کرج",
+    city: "کرج",
+    capacity: 8,
+    reserved: 2,
+    price: 40000,
+    img: "/categories/2.PNG",
+    tags: ["قهوه", "کرج"],
+  },
+];
+
+type Tab = "category" | "newest" | "discount" | "myreserves";
+
+const NAVY = "#1B2A4A";
+const NAVY_DARK = "#0d1e35";
+
+export default function EventsPage() {
+  const { state, setCity } = useApp();
+  const router = useRouter();
+  const [events, setEvents] = useState(ALL_MOCK_EVENTS);
+  const [loading, setLoading] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("category");
+  const [search, setSearch] = useState("");
+  const [myBookings, setMyBookings] = useState<any[]>([]);
+  const [activeCategoriesInCity, setActiveCategoriesInCity] = useState<
+    string[]
+  >(CATEGORIES.map((c) => c.id));
 
   useEffect(() => {
-    if (!state.isLoading && !isAdminPhone(state.user?.mobileNumber)) {
-      router.replace("/dashboard");
-    }
-  }, [state.isLoading, state.user]);
-
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      setMsg({ type: "error", text: "حجم تصویر نباید از ۵MB بیشتر باشد" });
+    const cityLS =
+      typeof window !== "undefined" ? localStorage.getItem("city") : null;
+    if (state.city) return;
+    if (cityLS) {
+      setCity(cityLS);
       return;
     }
+    if (!state.isLoggedIn) return;
+    fetchUserProfile()
+      .then((p) => {
+        if (p.city) {
+          setCity(p.city);
+          localStorage.setItem("city", p.city);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.isLoggedIn]);
 
-    const reader = new FileReader();
-    reader.onload = (ev) => setImagePreview(ev.target?.result as string);
-    reader.readAsDataURL(file);
+  const userCity =
+    state.city ||
+    (typeof window !== "undefined" ? localStorage.getItem("city") : null) ||
+    "";
 
-    setUploading(true);
-    setUploadProgress(0);
-    try {
-      const interval = setInterval(
-        () => setUploadProgress((p) => Math.min(p + 15, 85)),
-        200,
+  useEffect(() => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5000);
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const params = new URLSearchParams({ limit: "50" });
+    if (userCity) params.set("city", userCity);
+
+    fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/events?${params}`,
+      {
+        signal: ctrl.signal,
+        headers: { ...headers, "Cache-Control": "no-cache" },
+      },
+    )
+      .then((r) => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
+      .then((data) => {
+        if (data?.events?.length > 0) {
+          const mapped = data.events.map((e: any) => ({
+            id: e.id,
+            category: e.category || "hamneshin",
+            title: e.title,
+            subtitle: e.description || "",
+            date: new Date(e.start_date || e.startDate).toLocaleDateString(
+              "fa-IR",
+            ),
+            time: new Date(e.start_date || e.startDate).toLocaleTimeString(
+              "fa-IR",
+              { hour: "2-digit", minute: "2-digit" },
+            ),
+            weekday: new Date(e.start_date || e.startDate).toLocaleDateString(
+              "fa-IR",
+              { weekday: "long" },
+            ),
+            location: e.location || e.city || "تهران",
+            city: e.city || "",
+            capacity: e.capacity,
+            reserved: e.reservedCount ?? e.current_bookings ?? 0,
+            price: e.price,
+            img: e.image_url || "/categories/1.PNG",
+            tags: e.tags || [],
+          }));
+          setEvents(mapped);
+          const activeCats = [...new Set(mapped.map((e: any) => e.category))];
+          if (activeCats.length > 0)
+            setActiveCategoriesInCity(activeCats as string[]);
+          else if (userCity)
+            setActiveCategoriesInCity(getActiveCategoriesForCity(userCity));
+        } else {
+          if (userCity) {
+            const cityEvents = ALL_MOCK_EVENTS.filter(
+              (e) => e.city === userCity,
+            );
+            const activeCats = [...new Set(cityEvents.map((e) => e.category))];
+            setActiveCategoriesInCity(
+              activeCats.length > 0
+                ? activeCats
+                : getActiveCategoriesForCity(userCity),
+            );
+          }
+        }
+      })
+      .catch(() => {
+        if (userCity) {
+          const cityEvents = ALL_MOCK_EVENTS.filter((e) => e.city === userCity);
+          const activeCats = [...new Set(cityEvents.map((e) => e.category))];
+          if (activeCats.length > 0) {
+            setActiveCategoriesInCity(activeCats);
+            setEvents(
+              ALL_MOCK_EVENTS.filter(
+                (e) => e.city === userCity || e.city === "تهران",
+              ),
+            );
+          } else {
+            setActiveCategoriesInCity(getActiveCategoriesForCity(userCity));
+            setEvents(ALL_MOCK_EVENTS.filter((e) => e.city === "تهران"));
+          }
+        }
+      })
+      .finally(() => {
+        clearTimeout(t);
+        setLoading(false);
+      });
+
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [userCity]);
+
+  useEffect(() => {
+    if (!state.isLoggedIn) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/bookings`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    )
+      .then((r) => r.json())
+      .then((raw) => {
+        const bookings: any[] = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.data)
+            ? raw.data
+            : Array.isArray(raw?.bookings)
+              ? raw.bookings
+              : [];
+        setMyBookings(bookings);
+      })
+      .catch(() => {});
+  }, [state.isLoggedIn]);
+
+  const filtered = (() => {
+    let list = events;
+    if (userCity)
+      list = list.filter(
+        (e) => !e.city || e.city === userCity || e.city === "",
       );
-      const imageUrl = await uploadEventImage(file);
-      clearInterval(interval);
-      setUploadProgress(100);
-      setForm((f) => ({ ...f, image_url: imageUrl }));
-      setMsg({
-        type: "success",
-        text: "✅ تصویر با موفقیت آپلود و روی سرور ذخیره شد",
-      });
-      setTimeout(() => {
-        setMsg(null);
-        setUploadProgress(0);
-      }, 2500);
-    } catch (err: any) {
-      setImagePreview(null);
-      setMsg({ type: "error", text: err.message || "خطا در آپلود تصویر" });
-      setUploadProgress(0);
-    } finally {
-      setUploading(false);
+    if (activeCategory)
+      list = list.filter((e) => e.category === activeCategory);
+    if (search.trim()) {
+      const q = search.trim();
+      list = list.filter(
+        (e) =>
+          e.title.includes(q) ||
+          e.subtitle?.includes(q) ||
+          e.location?.includes(q),
+      );
     }
-  };
+    if (activeTab === "newest")
+      list = [...list].sort((a, b) => b.id.localeCompare(a.id));
+    if (activeTab === "discount") list = list.filter((e) => e.price < 80000);
+    return list;
+  })();
 
-  const toggleFeature = (f: string) =>
-    setForm((prev) => ({
-      ...prev,
-      features: prev.features.includes(f)
-        ? prev.features.filter((x) => x !== f)
-        : [...prev.features, f],
-    }));
+  const TABS: { id: Tab; label: string; Icon: any }[] = [
+    { id: "category", label: "دسته‌بندی", Icon: Home },
+    { id: "newest", label: "جدیدترین", Icon: Sparkles },
+    { id: "discount", label: "تخفیف‌ها", Icon: Tag },
+    { id: "myreserves", label: "رزرو من", Icon: CalendarCheck },
+  ];
 
-  const validate = (forStep?: number): string | null => {
-    const s = forStep ?? step;
-    if (s >= 0) {
-      if (!form.title.trim()) return "عنوان همنشینی الزامی است";
-      if (form.description.trim().length < 10)
-        return "توضیحات حداقل ۱۰ کاراکتر باشد";
-    }
-    if (s >= 1) {
-      if (!form.startDate) return "تاریخ و ساعت شروع الزامی است";
-      if (form.capacity < 2) return "ظرفیت حداقل ۲ نفر";
-    }
-    if (s >= 2) {
-      if (!form.category) return "دسته‌بندی را انتخاب کنید";
-      if (!form.city) return "شهر را انتخاب کنید";
-      if (!form.is_online && !form.location.trim())
-        return "مکان دقیق الزامی است";
-    }
-    return null;
-  };
-
-  const nextStep = () => {
-    const err = validate(step);
-    if (err) {
-      setMsg({ type: "error", text: err });
-      return;
-    }
-    setMsg(null);
-    setStep((s) => s + 1);
-  };
-
-  const submit = async () => {
-    const err = validate(3);
-    if (err) {
-      setMsg({ type: "error", text: err });
-      return;
-    }
-    if (uploading) {
-      setMsg({ type: "error", text: "صبر کنید تا آپلود تصویر کامل شود" });
-      return;
-    }
-    setLoading(true);
-    setMsg(null);
-    try {
-      await createAdminEvent({
-        title: form.title.trim(),
-        description: form.description.trim(),
-        category: form.category,
-        event_type: form.category,
-        city: form.city,
-        location: form.location.trim(),
-        capacity: form.capacity,
-        price: form.price,
-        startDate: new Date(form.startDate).toISOString() as any,
-        endDate: form.endDate
-          ? (new Date(form.endDate).toISOString() as any)
-          : undefined,
-        tags: form.tags
-          .split(",")
-          .map((x) => x.trim())
-          .filter(Boolean) as any,
-        features: form.features as any,
-        targetPersonalityTraits: form.targetPersonalityTraits as any,
-        isActive: form.isActive,
-        is_active: form.isActive,
-        is_online: form.is_online,
-        image_url: form.image_url || undefined,
-      });
-      setMsg({
-        type: "success",
-        text:
-          "✅ همنشینی با موفقیت در دیتابیس ذخیره شد! کاربران " +
-          form.city +
-          " می‌توانند آن را ببینند.",
-      });
-      setTimeout(() => router.push("/events"), 2500);
-    } catch (e: any) {
-      setMsg({
-        type: "error",
-        text: e.message || "❌ خطا در ایجاد. دسترسی ادمین را بررسی کنید.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const activeCat = CATEGORIES.find((c) => c.id === activeCategory);
 
   return (
-    <div className="max-w-xl mx-auto pb-24 space-y-5 relative z-10" dir="rtl">
-      {/* هدر */}
-      <div className="rounded-3xl p-6" style={CARD}>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/admin/events")}
-            className="w-10 h-10 rounded-2xl flex items-center justify-center hover:bg-white/10 transition"
-            style={{ background: "rgba(255,255,255,0.06)" }}
-          >
-            <ArrowRight size={18} className="text-white" />
-          </button>
-          <div>
-            <h1 className="text-xl font-black text-white">
-              ایجاد همنشینی جدید
+    <div className="min-h-screen pb-28 relative bg-gray-50" dir="rtl">
+      <AnimatedBackground />
+      <div className="relative z-10">
+        {/* ── Header — Navy ── */}
+        <div className="sticky top-0 z-30" style={{ background: NAVY }}>
+          <div className="max-w-lg mx-auto px-4 pt-4 pb-3">
+            <h1 className="text-center text-lg font-black text-white mb-3">
+              رزرو همنشینی
             </h1>
-            <p className="text-sm text-slate-400">
-              مرحله {step + 1} از {STEPS.length} — {STEPS[step].label}
-            </p>
+            <div className="relative mb-2">
+              <Search
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50"
+                size={16}
+              />
+              <input
+                type="text"
+                placeholder="جست‌وجو همنشینی..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setActiveCategory(null);
+                }}
+                className="w-full rounded-xl pr-9 pl-4 py-2.5 text-sm text-white outline-none placeholder-white/40 focus:ring-2 focus:ring-orange-400"
+                style={{
+                  background: "rgba(255,255,255,0.12)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                }}
+              />
+            </div>
+            {userCity && (
+              <div className="flex items-center gap-1 text-xs text-white/60 pb-1">
+                <MapPin size={12} className="text-orange-400" />
+                <span>رویدادهای {userCity}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Banner */}
+          <div className="max-w-lg mx-auto px-4 pb-3">
+            <div
+              className="relative rounded-2xl overflow-hidden h-32 shadow-lg select-none"
+              style={{ background: NAVY_DARK }}
+            >
+              {/* Clear banner image */}
+              <img
+                src={activeCat?.img || "/categories/3.PNG"}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover opacity-65 transition-all duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-l from-black/70 via-black/25 to-transparent" />
+              <div className="absolute inset-0 flex items-center justify-between px-5">
+                <div className="text-white z-10 max-w-[55%]">
+                  <span
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    style={{ background: "rgba(255,255,255,0.2)" }}
+                  >
+                    {activeCat ? activeCat.title : "همنشینی‌های"}
+                  </span>
+                  <h2 className="text-xl font-black leading-tight mt-1">
+                    {activeCat ? activeCat.title : "راوی"}
+                  </h2>
+                  <p className="text-[11px] opacity-80 mt-0.5 line-clamp-1">
+                    {activeCat
+                      ? activeCat.banner
+                      : "همنشینی‌هایی برای آدم‌های کنجکاو"}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setActiveTab("category");
+                      if (!activeCategory) setActiveCategory("hambazi");
+                    }}
+                    className="mt-2 inline-flex items-center bg-orange-500 text-white text-xs font-black px-3 py-1 rounded-full shadow-md hover:bg-orange-600 active:scale-95 transition-all"
+                  >
+                    ثبت‌نام
+                  </button>
+                </div>
+                {/* Clear circular image — no dark overlay */}
+                <div
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-24 h-24 rounded-full overflow-hidden shadow-xl"
+                  style={{ border: "3px solid rgba(255,255,255,0.4)" }}
+                >
+                  <img
+                    src={activeCat?.img || "/categories/3.PNG"}
+                    alt=""
+                    className="w-full h-full object-cover transition-all duration-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div
+            className="max-w-lg mx-auto px-0 border-b"
+            style={{ background: NAVY, borderColor: "rgba(255,255,255,0.12)" }}
+          >
+            <div className="flex">
+              {[...TABS].reverse().map(({ id, label, Icon }) => {
+                const isA = activeTab === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => {
+                      setActiveTab(id);
+                      if (id !== "category") setActiveCategory(null);
+                    }}
+                    className={`flex-1 flex flex-col items-center gap-1 py-2.5 text-[11px] font-bold transition-all border-b-2 ${isA ? "border-orange-500 text-orange-400" : "border-transparent text-white/50 hover:text-white/80"}`}
+                  >
+                    <Icon size={15} />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
-        <div className="flex gap-2 mt-4">
-          {STEPS.map((_, i) => (
-            <button
+
+        {/* ── Content — light background ── */}
+        <div className="max-w-lg mx-auto px-4">
+          {activeTab === "category" && (
+            <>
+              {!userCity && (
+                <div
+                  className="mt-4 mb-4 rounded-2xl p-3 flex items-center gap-3 cursor-pointer bg-white shadow-sm"
+                  style={{ border: "1.5px dashed rgba(255,107,0,0.4)" }}
+                  onClick={() => router.push("/dashboard/profile")}
+                >
+                  <MapPin size={18} className="text-orange-500 flex-shrink-0" />
+                  <p className="text-sm text-orange-700 font-bold">
+                    برای دیدن همنشینی‌های شهرت، ابتدا شهر رو انتخاب کن
+                  </p>
+                  <ChevronLeft
+                    size={16}
+                    className="text-orange-400 mr-auto flex-shrink-0"
+                  />
+                </div>
+              )}
+
+              {/* Category Grid — clear images */}
+              <div className="grid grid-cols-3 gap-2.5 mt-4 mb-6">
+                {CATEGORIES.map((cat) => {
+                  const isA = activeCategory === cat.id;
+                  const catEvents = events.filter((e) => e.category === cat.id);
+                  const isActive =
+                    !userCity || activeCategoriesInCity.includes(cat.id);
+
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => {
+                        if (!isActive) return;
+                        setActiveCategory(isA ? null : cat.id);
+                      }}
+                      disabled={!isActive}
+                      className={`relative rounded-2xl overflow-hidden aspect-square flex flex-col items-end justify-end transition-all duration-200 shadow-sm ${
+                        isActive
+                          ? "hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
+                          : "cursor-not-allowed"
+                      } ${isA ? "ring-4 ring-orange-500 ring-offset-1 scale-[1.03]" : ""}`}
+                      style={{ background: "#f3f4f6" }}
+                    >
+                      {/* Clear image */}
+                      <img
+                        src={cat.img}
+                        alt={cat.title}
+                        className={`absolute inset-0 w-full h-full object-cover transition-all duration-300 ${
+                          isActive ? "opacity-95" : "opacity-25 grayscale"
+                        }`}
+                      />
+
+                      {/* Thin gradient at bottom only for text */}
+                      {isActive && (
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
+                      )}
+
+                      {!isActive && (
+                        <div
+                          className="absolute inset-0 flex flex-col items-center justify-center z-10"
+                          style={{
+                            background: "rgba(210,210,220,0.5)",
+                            backdropFilter: "blur(2px)",
+                          }}
+                        >
+                          <Lock size={18} className="text-gray-500 mb-1" />
+                          <span className="text-gray-600 text-[9px] font-bold text-center px-1">
+                            در {userCity} فعال نیست
+                          </span>
+                        </div>
+                      )}
+
+                      {isActive && catEvents.length > 0 && (
+                        <span className="absolute top-1.5 right-1.5 bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full z-10 shadow">
+                          {catEvents.length}
+                        </span>
+                      )}
+
+                      {isActive && (
+                        <p className="relative z-10 text-white text-[11px] font-black p-2 drop-shadow-lg w-full text-right">
+                          {cat.title}
+                        </p>
+                      )}
+
+                      {isA && (
+                        <span className="absolute top-1.5 left-1.5 bg-orange-500 rounded-full w-5 h-5 flex items-center justify-center z-20 shadow-md">
+                          <svg
+                            className="w-3 h-3 text-white"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Section header — light */}
+              <div
+                className="rounded-xl px-4 py-3 mb-4 flex items-center justify-between bg-white shadow-sm"
+                style={{ border: "1px solid rgba(0,0,0,0.06)" }}
+              >
+                <h2 className="text-sm font-black text-gray-800">
+                  {activeCategory
+                    ? `همنشینی‌های ${activeCat?.title}`
+                    : "همنشینی‌های پرطرفدار"}
+                </h2>
+                {activeCategory && (
+                  <button
+                    onClick={() => setActiveCategory(null)}
+                    className="text-orange-500 text-xs font-bold"
+                  >
+                    همه رویدادها
+                  </button>
+                )}
+              </div>
+
+              <EventCards
+                events={filtered}
+                loading={loading}
+                onClear={() => setActiveCategory(null)}
+                hasFilter={!!activeCategory}
+              />
+            </>
+          )}
+
+          {activeTab === "newest" && (
+            <>
+              <div
+                className="mt-4 rounded-xl px-4 py-3 mb-4 bg-white shadow-sm"
+                style={{ border: "1px solid rgba(0,0,0,0.06)" }}
+              >
+                <h2 className="text-sm font-black text-gray-800">
+                  جدیدترین همنشینی‌ها
+                </h2>
+              </div>
+              <EventCards
+                events={filtered}
+                loading={loading}
+                onClear={() => {}}
+                hasFilter={false}
+              />
+            </>
+          )}
+
+          {activeTab === "discount" && (
+            <>
+              <div
+                className="mt-4 rounded-xl px-4 py-3 mb-4 bg-white shadow-sm"
+                style={{ border: "1px solid rgba(0,0,0,0.06)" }}
+              >
+                <h2 className="text-sm font-black text-gray-800">
+                  همنشینی‌های تخفیف‌دار
+                  <span className="text-xs font-medium mr-2 text-gray-400">
+                    زیر ۸۰ هزار تومان
+                  </span>
+                </h2>
+              </div>
+              <EventCards
+                events={filtered}
+                loading={loading}
+                onClear={() => {}}
+                hasFilter={false}
+              />
+            </>
+          )}
+
+          {activeTab === "myreserves" && (
+            <>
+              <div
+                className="mt-4 rounded-xl px-4 py-3 mb-4 bg-white shadow-sm"
+                style={{ border: "1px solid rgba(0,0,0,0.06)" }}
+              >
+                <h2 className="text-sm font-black text-gray-800">رزروهای من</h2>
+              </div>
+              {myBookings.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="text-6xl mb-4">📋</div>
+                  <p className="text-gray-700 font-black text-base mb-1">
+                    هنوز رزروی ندارید
+                  </p>
+                  <p className="text-sm mb-6 text-gray-400">
+                    اولین همنشینی خود را رزرو کنید
+                  </p>
+                  <button
+                    onClick={() => setActiveTab("category")}
+                    className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-black px-6 py-2.5 rounded-xl transition-colors shadow-md"
+                  >
+                    رزرو همنشینی
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {myBookings.map((b: any) => (
+                    <div
+                      key={b.id}
+                      className="rounded-2xl p-4 flex items-center gap-3 bg-white shadow-sm"
+                      style={{ border: "1px solid rgba(0,0,0,0.06)" }}
+                    >
+                      <div
+                        className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={{ background: "rgba(255,107,0,0.12)" }}
+                      >
+                        <CalendarCheck size={20} className="text-orange-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-black text-gray-800 text-sm truncate">
+                          {b.service || b.event_id || "رزرو"}
+                        </p>
+                        <p className="text-xs mt-0.5 text-gray-400">
+                          {b.status === "confirmed" ? "تأیید شده" : "در انتظار"}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EventCards({
+  events,
+  loading,
+  onClear,
+  hasFilter,
+}: {
+  events: any[];
+  loading: boolean;
+  onClear: () => void;
+  hasFilter: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="flex justify-center py-16">
+        <div className="flex gap-2">
+          {[300, 150, 0].map((d, i) => (
+            <div
               key={i}
-              onClick={() => i < step && setStep(i)}
-              className={`h-2 flex-1 rounded-full transition-all ${i <= step ? "bg-orange-500" : "bg-slate-700"}`}
+              className="w-3 h-3 bg-orange-500 rounded-full animate-bounce"
+              style={{ animationDelay: `-${d}ms` }}
             />
           ))}
         </div>
       </div>
+    );
+  }
 
-      {/* پیام */}
-      {msg && (
-        <div
-          className={`rounded-2xl p-4 text-sm font-bold flex items-center gap-2 ${msg.type === "success" ? "text-green-400" : "text-red-400"}`}
-          style={{
-            background:
-              msg.type === "success"
-                ? "rgba(16,185,129,0.1)"
-                : "rgba(239,68,68,0.1)",
-            border: `1px solid ${msg.type === "success" ? "rgba(16,185,129,0.25)" : "rgba(239,68,68,0.25)"}`,
-          }}
-        >
-          {msg.type === "success" ? (
-            <Check size={16} />
-          ) : (
-            <AlertCircle size={16} />
-          )}
-          {msg.text}
-        </div>
-      )}
-
-      {/* مرحله ۰ */}
-      {step === 0 && (
-        <div className="rounded-3xl p-5 space-y-4" style={CARD}>
-          <h2 className="font-black text-white flex items-center gap-2 text-sm">
-            <FileText size={16} className="text-orange-400" /> اطلاعات اصلی
-          </h2>
-          <div>
-            <label className="text-xs text-slate-400 mb-1.5 block">
-              عنوان همنشینی *
-            </label>
-            <input
-              className={INP}
-              style={INP_S}
-              placeholder="مثال: دورهمی قهوه صبحگاهی"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-slate-400 mb-1.5 block">
-              توضیحات کامل *
-            </label>
-            <textarea
-              className={`${INP} resize-none`}
-              style={INP_S}
-              rows={5}
-              placeholder="فضا چگونه است؟ چه کسانی شرکت کنند؟ چه اتفاقی می‌افتد؟"
-              value={form.description}
-              onChange={(e) =>
-                setForm({ ...form, description: e.target.value })
-              }
-            />
-            <p className="text-[11px] text-slate-500 mt-1">
-              {form.description.length} کاراکتر{" "}
-              {form.description.length < 10 && form.description.length > 0
-                ? "— حداقل ۱۰"
-                : ""}
-            </p>
-          </div>
-          <div>
-            <label className="text-xs text-slate-400 mb-1.5 block">
-              قیمت (تومان) — صفر = رایگان
-            </label>
-            <input
-              className={INP}
-              style={INP_S}
-              type="number"
-              min={0}
-              step={10000}
-              placeholder="۰"
-              value={form.price}
-              onChange={(e) =>
-                setForm({ ...form, price: Number(e.target.value) })
-              }
-            />
-            {form.price > 0 && (
-              <p className="text-[11px] text-orange-300 mt-1">
-                {Number(form.price).toLocaleString("fa-IR")} تومان
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="text-xs text-slate-400 mb-1.5 block">
-              تگ‌ها (با ویرگول)
-            </label>
-            <input
-              className={INP}
-              style={INP_S}
-              placeholder="صبحانه، کافه، آشنایی"
-              value={form.tags}
-              onChange={(e) => setForm({ ...form, tags: e.target.value })}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* مرحله ۱ */}
-      {step === 1 && (
-        <div className="rounded-3xl p-5 space-y-4" style={CARD}>
-          <h2 className="font-black text-white flex items-center gap-2 text-sm">
-            <Calendar size={16} className="text-orange-400" /> زمان و ظرفیت
-          </h2>
-          <div>
-            <label className="text-xs text-slate-400 mb-1.5 block">
-              تاریخ و ساعت شروع *
-            </label>
-            <input
-              className={INP}
-              style={INP_S}
-              type="datetime-local"
-              value={form.startDate}
-              onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-slate-400 mb-1.5 block">
-              تاریخ و ساعت پایان (اختیاری)
-            </label>
-            <input
-              className={INP}
-              style={INP_S}
-              type="datetime-local"
-              value={form.endDate}
-              min={form.startDate}
-              onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-slate-400 mb-1.5 block">
-              ظرفیت *{" "}
-              <span className="text-orange-400">({form.capacity} نفر)</span>
-            </label>
-            <input
-              className={INP}
-              style={INP_S}
-              type="number"
-              min={2}
-              max={500}
-              value={form.capacity}
-              onChange={(e) =>
-                setForm({ ...form, capacity: Number(e.target.value) })
-              }
-            />
-            <input
-              type="range"
-              min={2}
-              max={100}
-              value={Math.min(form.capacity, 100)}
-              onChange={(e) =>
-                setForm({ ...form, capacity: Number(e.target.value) })
-              }
-              className="w-full mt-2 accent-orange-500"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-slate-400 mb-1.5 block">
-              ویژگی‌های شخصیتی مناسب (اختیاری)
-            </label>
-            <input
-              className={INP}
-              style={INP_S}
-              placeholder="برونگرا، خلاق، کنجکاو"
-              value={form.targetPersonalityTraits}
-              onChange={(e) =>
-                setForm({ ...form, targetPersonalityTraits: e.target.value })
-              }
-            />
-          </div>
-        </div>
-      )}
-
-      {/* مرحله ۲ */}
-      {step === 2 && (
-        <div className="space-y-4">
-          <div className="rounded-3xl p-5 space-y-4" style={CARD}>
-            <h2 className="font-black text-white flex items-center gap-2 text-sm">
-              <MapPin size={16} className="text-orange-400" /> مکان
-            </h2>
-            <div>
-              <label className="text-xs text-slate-400 mb-1.5 block">
-                شهر * —{" "}
-                <span className="text-blue-400">
-                  نمایش عمومی و فیلتر کاربران
-                </span>
-              </label>
-              <select
-                className={INP}
-                style={INP_S}
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-              >
-                <option value="">-- انتخاب شهر --</option>
-                {CITIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-              {form.city && (
-                <p className="text-[11px] text-blue-300 mt-1">
-                  ✓ فقط کاربران {form.city} این همنشینی را می‌بینند
-                </p>
-              )}
-            </div>
-            <div
-              className="flex items-center justify-between p-3 rounded-xl"
-              style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
-              }}
-            >
-              <div>
-                <p className="text-sm font-bold text-white">رویداد آنلاین</p>
-                <p className="text-xs text-slate-500">
-                  بدون نیاز به مکان فیزیکی
-                </p>
-              </div>
-              <button
-                onClick={() =>
-                  setForm((f) => ({ ...f, is_online: !f.is_online }))
-                }
-                className={`w-11 h-6 rounded-full transition-all relative ${form.is_online ? "bg-blue-500" : "bg-slate-600"}`}
-              >
-                <span
-                  className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${form.is_online ? "left-6" : "left-1"}`}
-                />
-              </button>
-            </div>
-            {!form.is_online && (
-              <div>
-                <label className="text-xs text-slate-400 mb-1.5 block">
-                  مکان دقیق * —{" "}
-                  <span className="text-orange-400">
-                    محرمانه، فقط ۱۰ ساعت قبل
-                  </span>
-                </label>
-                <input
-                  className={INP}
-                  style={INP_S}
-                  placeholder="آدرس کامل: کوچه، خیابان، ساختمان"
-                  value={form.location}
-                  onChange={(e) =>
-                    setForm({ ...form, location: e.target.value })
-                  }
-                />
-                <div
-                  className="mt-2 flex items-start gap-1.5 p-2.5 rounded-xl"
-                  style={{
-                    background: "rgba(255,107,0,0.08)",
-                    border: "1px solid rgba(255,107,0,0.15)",
-                  }}
-                >
-                  <Info
-                    size={12}
-                    className="text-orange-400 flex-shrink-0 mt-0.5"
-                  />
-                  <p className="text-[11px] text-orange-300">
-                    آدرس دقیق فقط برای رزروکنندگان و در ۱۰ ساعت آخر قبل از
-                    رویداد نمایش داده می‌شود.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="rounded-3xl p-5" style={CARD}>
-            <h2 className="font-black text-white flex items-center gap-2 text-sm mb-4">
-              <Tag size={16} className="text-orange-400" /> دسته‌بندی *
-            </h2>
-            <div className="grid grid-cols-3 gap-2">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setForm({ ...form, category: cat.id })}
-                  className="p-3 rounded-xl text-center transition-all border"
-                  style={
-                    form.category === cat.id
-                      ? {
-                          background: "rgba(255,107,0,0.15)",
-                          borderColor: "#FF6B00",
-                        }
-                      : {
-                          background: "rgba(255,255,255,0.04)",
-                          borderColor: "rgba(255,255,255,0.08)",
-                        }
-                  }
-                >
-                  <div className="text-xl mb-0.5">{cat.emoji}</div>
-                  <p
-                    className={`text-xs font-bold ${form.category === cat.id ? "text-orange-400" : "text-slate-400"}`}
-                  >
-                    {cat.label}
-                  </p>
-                  <p className="text-[10px] text-slate-600 mt-0.5">
-                    {cat.desc}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* مرحله ۳ */}
-      {step === 3 && (
-        <div className="space-y-4">
-          <div className="rounded-3xl p-5" style={CARD}>
-            <h2 className="font-black text-white flex items-center gap-2 text-sm mb-4">
-              <Tag size={16} className="text-orange-400" /> ویژگی‌ها
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {FEATURES_OPTIONS.map((f) => (
-                <button
-                  key={f}
-                  onClick={() => toggleFeature(f)}
-                  className="px-3 py-1.5 rounded-full text-xs font-bold transition-all border"
-                  style={
-                    form.features.includes(f)
-                      ? {
-                          background: "rgba(255,107,0,0.15)",
-                          borderColor: "#FF6B00",
-                          color: "#FB923C",
-                        }
-                      : {
-                          background: "rgba(255,255,255,0.03)",
-                          borderColor: "rgba(255,255,255,0.12)",
-                          color: "#94A3B8",
-                        }
-                  }
-                >
-                  {form.features.includes(f) && "✓ "}
-                  {f}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-3xl p-5" style={CARD}>
-            <h2 className="font-black text-white flex items-center gap-2 text-sm mb-4">
-              <ImageIcon size={16} className="text-orange-400" /> تصویر همنشینی
-            </h2>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={handleImageChange}
-            />
-            {imagePreview ? (
-              <div className="relative">
-                <img
-                  src={imagePreview}
-                  alt="پیش‌نمایش"
-                  className="w-full h-48 object-cover rounded-2xl"
-                />
-                {uploading ? (
-                  <div className="absolute inset-0 bg-black/60 rounded-2xl flex flex-col items-center justify-center gap-2">
-                    <Loader2
-                      size={24}
-                      className="text-orange-400 animate-spin"
-                    />
-                    <p className="text-sm text-white font-bold">
-                      آپلود روی سرور... {uploadProgress}%
-                    </p>
-                    <div className="w-32 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-orange-500 transition-all rounded-full"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {form.image_url && (
-                      <div
-                        className="absolute top-2 right-2 px-2 py-1 rounded-lg text-[10px] font-bold text-green-400 flex items-center gap-1"
-                        style={{ background: "rgba(16,185,129,0.2)" }}
-                      >
-                        <Check size={10} /> ذخیره در سرور
-                      </div>
-                    )}
-                    <button
-                      onClick={() => {
-                        setImagePreview(null);
-                        setForm((f) => ({ ...f, image_url: "" }));
-                      }}
-                      className="absolute top-2 left-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center"
-                    >
-                      <X size={14} className="text-white" />
-                    </button>
-                    <button
-                      onClick={() => fileRef.current?.click()}
-                      className="absolute bottom-2 left-2 px-3 py-1.5 rounded-xl text-white text-xs font-bold"
-                      style={{ background: "rgba(255,107,0,0.8)" }}
-                    >
-                      تغییر
-                    </button>
-                  </>
-                )}
-              </div>
-            ) : (
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="w-full h-36 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 hover:border-orange-500 transition-colors"
-                style={{
-                  borderColor: "rgba(255,255,255,0.15)",
-                  background: "rgba(255,255,255,0.03)",
-                }}
-              >
-                <Upload size={22} className="text-slate-400" />
-                <div className="text-center">
-                  <p className="text-sm text-slate-300 font-bold">
-                    کلیک کنید تا تصویر انتخاب کنید
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    JPG, PNG, WebP — حداکثر ۵MB — آپلود روی سرور
-                  </p>
-                </div>
-              </button>
-            )}
-          </div>
-
-          <div
-            className="rounded-2xl p-4 flex items-center justify-between"
-            style={CARD}
-          >
-            <div>
-              <p className="text-sm font-bold text-white">انتشار فوری</p>
-              <p className="text-xs text-slate-500">
-                بلافاصله برای کاربران {form.city || "شهر انتخابی"} نمایش داده
-                شود
-              </p>
-            </div>
-            <button
-              onClick={() => setForm((f) => ({ ...f, isActive: !f.isActive }))}
-              className={`w-12 h-6 rounded-full transition-all relative ${form.isActive ? "bg-orange-500" : "bg-slate-600"}`}
-            >
-              <span
-                className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${form.isActive ? "left-7" : "left-1"}`}
-              />
-            </button>
-          </div>
-
-          {/* خلاصه */}
-          <div
-            className="rounded-2xl p-4 space-y-1.5"
-            style={{
-              background: "rgba(255,107,0,0.06)",
-              border: "1px solid rgba(255,107,0,0.15)",
-            }}
-          >
-            <p className="text-xs font-black text-orange-400 mb-2">
-              📋 خلاصه قبل از ذخیره:
-            </p>
-            {[
-              ["📌", "عنوان", form.title || "—"],
-              ["🏙️", "شهر", form.city || "—"],
-              [
-                "🗂️",
-                "دسته",
-                CATEGORIES.find((c) => c.id === form.category)?.label || "—",
-              ],
-              [
-                "💰",
-                "قیمت",
-                form.price > 0
-                  ? `${Number(form.price).toLocaleString("fa-IR")} تومان`
-                  : "رایگان",
-              ],
-              ["👥", "ظرفیت", `${form.capacity} نفر`],
-              [
-                "🖼️",
-                "تصویر",
-                form.image_url ? "✅ آپلود شد روی سرور" : "⬜ بدون تصویر",
-              ],
-            ].map(([emoji, key, val]) => (
-              <p key={key} className="text-xs text-slate-300">
-                {emoji} {key}:{" "}
-                <span className="text-white font-bold">{val}</span>
-              </p>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* دکمه‌های ناوبری */}
-      <div className="flex gap-3">
-        {step > 0 && (
+  if (events.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <div className="text-5xl mb-3">📅</div>
+        <p className="text-gray-500 font-medium">
+          در این دسته‌بندی همنشینی‌ای یافت نشد
+        </p>
+        {hasFilter && (
           <button
-            onClick={() => {
-              setMsg(null);
-              setStep((s) => s - 1);
-            }}
-            className="flex-1 py-3.5 rounded-2xl font-black text-sm text-slate-300 flex items-center justify-center gap-2"
-            style={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
-            }}
+            onClick={onClear}
+            className="mt-4 text-orange-500 font-bold text-sm hover:underline"
           >
-            <ArrowRight size={16} /> قبلی
-          </button>
-        )}
-        {step < STEPS.length - 1 ? (
-          <button
-            onClick={nextStep}
-            className="flex-1 py-3.5 rounded-2xl font-black text-sm text-white"
-            style={{
-              background: "linear-gradient(135deg, #FF6B00, #FF9A3C)",
-              boxShadow: "0 4px 20px rgba(255,107,0,0.35)",
-            }}
-          >
-            بعدی ←
-          </button>
-        ) : (
-          <button
-            onClick={submit}
-            disabled={loading || uploading}
-            className="flex-1 py-3.5 rounded-2xl font-black text-sm text-white flex items-center justify-center gap-2 disabled:opacity-60"
-            style={{
-              background: "linear-gradient(135deg, #FF6B00, #FF9A3C)",
-              boxShadow: "0 4px 20px rgba(255,107,0,0.35)",
-            }}
-          >
-            {loading ? (
-              <>
-                <Loader2 size={16} className="animate-spin" /> ذخیره در
-                دیتابیس...
-              </>
-            ) : (
-              <>
-                <Check size={16} /> ایجاد همنشینی
-              </>
-            )}
+            مشاهده همه رویدادها
           </button>
         )}
       </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 -mx-4">
+      {events.map((ev) => {
+        const full = ev.capacity <= (ev.reserved ?? 0);
+        const remaining = ev.capacity - (ev.reserved ?? 0);
+
+        return (
+          <div
+            key={ev.id}
+            className="relative group bg-white shadow-sm overflow-hidden rounded-2xl mx-4"
+          >
+            <div className="relative h-44 overflow-hidden">
+              {/* Clear event image — only light gradient at bottom */}
+              <img
+                src={getEventImage(ev.category, ev.id, ev.img)}
+                alt={ev.title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent" />
+
+              {full && (
+                <div className="absolute top-3 right-3 bg-white/95 text-slate-700 text-[11px] font-black px-3 py-1 rounded-full shadow">
+                  ( تکمیل ظرفیت )
+                </div>
+              )}
+
+              {ev.tags?.length > 0 && (
+                <div className="absolute top-3 left-3 flex gap-1">
+                  {ev.tags.slice(0, 2).map((tag: string) => (
+                    <span
+                      key={tag}
+                      className="bg-orange-500/90 text-white text-[9px] font-bold px-2 py-0.5 rounded-full"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="absolute right-3 bottom-3 left-28 text-white">
+                <h3 className="font-black text-sm leading-snug drop-shadow-lg line-clamp-2 mb-1.5">
+                  {ev.title}
+                </h3>
+                <div className="flex items-center gap-1 text-white/80 mb-1">
+                  <Clock size={11} className="flex-shrink-0" />
+                  <span className="text-[10px] line-clamp-1">
+                    {ev.weekday}، {ev.date} ساعت {ev.time}
+                  </span>
+                </div>
+                {ev.location && (
+                  <div className="flex items-center gap-1 text-white/70">
+                    <MapPin size={10} className="flex-shrink-0" />
+                    <span className="text-[10px] line-clamp-1">
+                      {ev.city || ev.location?.split("،").pop()?.trim()}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="absolute left-3 bottom-3 flex flex-col gap-1.5 items-end">
+                <Link
+                  href={`/events/${ev.id}`}
+                  className="bg-white/25 hover:bg-white/40 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-xl border border-white/40 transition-all"
+                >
+                  جزئیات
+                </Link>
+                {!full ? (
+                  <Link
+                    href={`/events/${ev.id}/booking`}
+                    className="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-xs font-black px-4 py-2 rounded-xl shadow-lg transition-all"
+                  >
+                    رزرو
+                  </Link>
+                ) : (
+                  <div className="bg-gray-700/70 text-white/60 text-[10px] font-bold px-3 py-2 rounded-xl">
+                    تکمیل ظرفیت
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {!full && remaining <= 4 && (
+              <div className="px-4 py-1.5 flex items-center gap-2 bg-orange-50">
+                <Users size={12} className="text-orange-500 flex-shrink-0" />
+                <span className="text-[11px] text-orange-500 font-bold">
+                  فقط {remaining} جای خالی باقی مانده!
+                </span>
+                <div className="flex-1 h-1 bg-orange-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-orange-500 rounded-full transition-all"
+                    style={{
+                      width: `${Math.round((ev.reserved / ev.capacity) * 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

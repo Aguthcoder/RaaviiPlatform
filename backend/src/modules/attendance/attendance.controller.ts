@@ -12,7 +12,7 @@ import { AttendanceService } from './attendance.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { isAdminUser } from '../events/events.controller';
 
-@Controller('api/attendance')
+@Controller('attendance')
 export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
 

@@ -13,8 +13,8 @@ export class GamesService {
     private resultRepo: Repository<QuizResult>,
   ) {}
 
-  async createQuiz(eventId: string, title: string, questions: QuizQuestion[]): Promise<EventQuiz> {
-    const quiz = this.quizRepo.create({ event_id: eventId, title, questions });
+  async createQuiz(eventId: string, title: string, questions: QuizQuestion[], game_type: string = 'icebreaker', settings?: any): Promise<EventQuiz> {
+    const quiz = this.quizRepo.create({ event_id: eventId, title, questions, game_type, settings });
     return this.quizRepo.save(quiz);
   }
 

@@ -7,11 +7,11 @@ import * as bcrypt from 'bcryptjs';
 
 const OTP_API_KEY = process.env.OTP_API_KEY || '';
 const OTP_TEMPLATE_ID = parseInt(process.env.OTP_TEMPLATE_ID || '100000');
-const IS_DEV = process.env.NODE_ENV !== 'production';
+const IS_DEV = process.env.NODE_ENV !== 'production' || process.env.ENABLE_DEV_OTP === 'true';
 
 // OTP store with rate limiting: tracks OTP code + request count
 const otpStore = new Map<string, { code: string; expiresAt: number; attempts: number; lastRequest: number }>();
-const OTP_MAX_ATTEMPTS = 5;   // max wrong guesses
+const OTP_MAX_ATTEMPTS = 5; // max wrong guesses
 const OTP_RATE_LIMIT_MS = 60_000; // 1 minute between requests
 
 @Injectable()
@@ -36,7 +36,12 @@ export class AuthService {
     }
 
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    otpStore.set(cleanPhone, { code: otpCode, expiresAt: Date.now() + 5 * 60 * 1000, attempts: 0, lastRequest: Date.now() });
+    otpStore.set(cleanPhone, {
+      code: otpCode,
+      expiresAt: Date.now() + 5 * 60 * 1000,
+      attempts: 0,
+      lastRequest: Date.now(),
+    });
 
     // DEV MODE: skip SMS, return code directly
     if (IS_DEV) {
@@ -59,7 +64,7 @@ export class AuthService {
         }),
       });
       if (!response.ok) {
-        const err = await response.json();
+        const err = (await response.json()) as any;
         throw new Error(err?.message || 'SMS send failed');
       }
     } catch (error) {
@@ -168,7 +173,7 @@ export class AuthService {
       avatar: user.avatar,
       role: user.role,
       isTestTaken: user.isTestTaken || false,
-      isProfileComplete: !!(user.name),
+      isProfileComplete: !!user.name,
     };
   }
 

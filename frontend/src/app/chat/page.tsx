@@ -33,7 +33,7 @@ export default function ChatPage() {
   const [chats, setChats] = useState<ChatRoom[]>([
     {
       id: 1,
-      name: "رویداد استارتاپی",
+      name: "همنشینی استارتاپی",
       type: "group",
       avatarColor: "bg-orange-500",
       lastMessage: "سلام همه!",

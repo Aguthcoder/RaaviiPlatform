@@ -4,13 +4,14 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "@/context/AppContext";
 
-const PUBLIC_ROUTES = ["/", "/login", "/about", "/events"];
-const PROTECTED_ROUTES = [
-  "/dashboard",
-  "/admin",
-  "/chat",
-  "/wallet",
-  "/notifications",
+// مسیرهایی که بدون لاگین قابل دسترسن
+const PUBLIC_ROUTES = [
+  "/",
+  "/login",
+  "/about",
+  "/events",
+  "/test",
+  "/verify-mobile",
 ];
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
@@ -18,23 +19,34 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
+  const isPublic = PUBLIC_ROUTES.some(
+    (r) => pathname === r || pathname.startsWith(r + "/"),
+  );
+
   useEffect(() => {
-    // Wait until loading is done
+    // منتظر بمون validate توکن تموم بشه
     if (state.isLoading) return;
 
-    const isProtected = PROTECTED_ROUTES.some((r) => pathname?.startsWith(r));
-    const isAuthPage = pathname === "/login";
-
-    if (!state.isLoggedIn && isProtected) {
-      router.replace("/login");
+    // لاگین نیست + صفحه protected → /login
+    if (!state.isLoggedIn && !isPublic) {
+      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
       return;
     }
 
-    if (state.isLoggedIn && isAuthPage) {
+    // لاگینه + صفحه /login → داشبورد
+    if (state.isLoggedIn && pathname === "/login") {
       router.replace("/dashboard");
-      return;
     }
   }, [pathname, router, state.isLoggedIn, state.isLoading]);
+
+  // هنگام validate شدن در صفحه protected → blank نشون بده (جلوگیری از flash)
+  if (state.isLoading && !isPublic) {
+    return (
+      <div className="fixed inset-0 bg-slate-900 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return <>{children}</>;
 }

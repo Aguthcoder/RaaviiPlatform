@@ -1,6 +1,13 @@
+/**
+ * app.module.ts — نسخه به‌روزشده با CrmModule
+ * تغییرات: اضافه شدن CrmModule و APP_INTERCEPTOR
+ * مسیر: src/app.module.ts
+ */
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import databaseConfig from './config/database.config';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -15,15 +22,26 @@ import { AdminModule } from './modules/admin/admin.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
-
-// ── لایه‌های هوشمندسازی ─────────────────────────────────────────────
+import { SupportModule } from './modules/support/support.module';
 import { MatchingModule } from './modules/matching/matching.module';
+import { IntelligenceModule } from './modules/intelligence/intelligence.module';
 import { AiContentModule } from './modules/ai-content/ai-content.module';
 import { BotModule } from './modules/bot/bot.module';
+import { CafeAccessModule } from './modules/cafe-access/cafe-access.module';
+import { RoiModule } from './modules/roi/roi.module';
+import { SmsModule } from './modules/sms/sms.module';
+
+// ✅ ماژول CRM جدید
+import { CrmModule } from './modules/crm/crm.module';
+import { BehaviorTrackingInterceptor } from './common/interceptors/behavior-tracking.interceptor';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [databaseConfig] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [databaseConfig],
+      envFilePath: ['.env.local', '.env'],
+    }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -35,13 +53,16 @@ import { BotModule } from './modules/bot/bot.module';
         password: cs.get<string>('DB_PASSWORD'),
         database: cs.get<string>('DB_DATABASE'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true,
+        synchronize: cs.get('NODE_ENV') !== 'production',
         retryAttempts: 5,
         retryDelay: 3000,
         logging: cs.get('NODE_ENV') !== 'production',
       }),
     }),
-    // ── ماژول‌های اصلی ─────────────────────────────────────────────
+    // ✅ ScheduleModule برای Cron job های CRM
+    ScheduleModule.forRoot(),
+
+    // ── ماژول‌های اصلی ─────────────────────────────────────────
     AuthModule,
     UsersModule,
     BookingsModule,
@@ -55,10 +76,28 @@ import { BotModule } from './modules/bot/bot.module';
     PaymentsModule,
     UploadModule,
     NotificationsModule,
-    // ── ماژول‌های هوشمندسازی ───────────────────────────────────────
+    SupportModule,
+
+    // ── ماژول‌های هوشمندسازی ───────────────────────────────────
     MatchingModule,
+    IntelligenceModule,
     AiContentModule,
     BotModule,
+
+    // ── ماژول‌های جدید ─────────────────────────────────────────
+    CafeAccessModule,
+    RoiModule,
+    SmsModule,
+
+    // ✅ CRM
+    CrmModule,
+  ],
+  providers: [
+    // ✅ Interceptor سراسری — همه API callها را ثبت می‌کند
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: BehaviorTrackingInterceptor,
+    },
   ],
 })
 export class AppModule {}

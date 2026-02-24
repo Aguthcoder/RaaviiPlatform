@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Get, Query } from '@nestjs/common';
 import { OtpService } from './otp.service';
 
-@Controller('api/otp')
+@Controller('otp')
 export class OtpController {
   constructor(private readonly otpService: OtpService) {}
 

@@ -27,6 +27,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import RaviLoader from "@/components/RaviLoader";
 
 // ── SVG Bar Chart ──────────────────────────────────────────────────────────
 function BarChartSVG({
@@ -253,33 +254,31 @@ export default function AdminDashboardPage() {
       router.replace("/dashboard");
       return;
     }
-    async function load() {
-      const [s, a, e] = await Promise.all([
-        fetchAdminStats().catch(() => ({
-          events: [],
-          avgSuccessRate: 0,
-          totalEvents: 0,
-        })),
-        fetchAdminAnalytics().catch(() => null),
-        fetchMyAdminEvents().catch(() => ({
-          events: [] as ApiEvent[],
-          total: 0,
-        })),
-      ]);
-      setStats(s);
-      setAnalytics(a);
-      setMyEvents(e.events.slice(0, 5));
-      setLoading(false);
-    }
-    load();
+    // ── کَش فوری ─────────────────────────────────────────────
+    try {
+      const cs = localStorage.getItem("adm_s");
+      const ca = localStorage.getItem("adm_a");
+      const ce = localStorage.getItem("adm_e");
+      if (cs) { setStats(JSON.parse(cs)); setLoading(false); }
+      if (ca) setAnalytics(JSON.parse(ca));
+      if (ce) setMyEvents(JSON.parse(ce));
+    } catch {}
+    // ── fetch موازی تدریجی ────────────────────────────────
+    fetchAdminStats()
+      .then(s => { setStats(s); setLoading(false);
+        try { localStorage.setItem("adm_s", JSON.stringify(s)); } catch {} })
+      .catch(() => setLoading(false));
+    fetchAdminAnalytics()
+      .then(a => { if (a) { setAnalytics(a);
+        try { localStorage.setItem("adm_a", JSON.stringify(a)); } catch {} } })
+      .catch(() => {});
+    fetchMyAdminEvents()
+      .then(e => { const ev = e.events.slice(0,5); setMyEvents(ev);
+        try { localStorage.setItem("adm_e", JSON.stringify(ev)); } catch {} })
+      .catch(() => {});
   }, [state.user]);
 
-  if (loading)
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+  if (loading) return <RaviLoader />;
 
   const catColors = [
     "#FF6B00",

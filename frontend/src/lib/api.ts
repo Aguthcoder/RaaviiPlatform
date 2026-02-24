@@ -1,23 +1,22 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 // ─── Admin phone numbers ───────────────────────────────────────────────────
 export const ADMIN_PHONES = [
-  '09356815523',
-  '09929564895',
-  '09933830958',
-  '09055508305',
-  '09053241505',
+  "09356815523",
+  "09929564895",
+  "09933830958",
+  "09053241505",
 ];
 
 export function isAdminPhone(phone?: string | null): boolean {
   if (!phone) return false;
-  const normalized = phone.replace(/\s|-/g, '');
+  const normalized = phone.replace(/\s|-/g, "");
   return ADMIN_PHONES.includes(normalized);
 }
 
 // ─── Token helper ──────────────────────────────────────────────────────────
 function getToken(): string | null {
-  if (typeof window !== 'undefined') return localStorage.getItem('token');
+  if (typeof window !== "undefined") return localStorage.getItem("token");
   return null;
 }
 
@@ -29,15 +28,15 @@ async function fetchAPI(
   const { token, ...rest } = options as any;
   const t = token || getToken();
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
     ...(rest.headers || {}),
   };
-  if (t) headers['Authorization'] = `Bearer ${t}`;
+  if (t) headers["Authorization"] = `Bearer ${t}`;
 
   const res = await fetch(`${API_URL}${endpoint}`, { ...rest, headers });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'Server error' }));
-    throw new Error(err.message || 'Connection error');
+    const err = await res.json().catch(() => ({ message: "Server error" }));
+    throw new Error(err.message || "Connection error");
   }
   return res.json();
 }
@@ -45,21 +44,21 @@ async function fetchAPI(
 // ─── Auth ─────────────────────────────────────────────────────────────────
 export const authAPI = {
   requestOtp: (phone: string) =>
-    fetchAPI('/api/auth/request-otp', {
-      method: 'POST',
+    fetchAPI("/api/auth/request-otp", {
+      method: "POST",
       body: JSON.stringify({ phone }),
     }),
   verifyOtp: (phone: string, code: string, name?: string) =>
-    fetchAPI('/api/auth/verify-otp', {
-      method: 'POST',
+    fetchAPI("/api/auth/verify-otp", {
+      method: "POST",
       body: JSON.stringify({ phone, code, name }),
     }),
   login: (identifier: string, password: string) =>
-    fetchAPI('/api/auth/login', {
-      method: 'POST',
+    fetchAPI("/api/auth/login", {
+      method: "POST",
       body: JSON.stringify({ identifier, password }),
     }),
-  getProfile: () => fetchAPI('/api/auth/profile'),
+  getProfile: () => fetchAPI("/api/auth/profile"),
 };
 
 // ─── Events ───────────────────────────────────────────────────────────────
@@ -92,40 +91,45 @@ export const fetchEvents = (params?: {
   city?: string;
   event_type?: string;
 }): Promise<{ events: ApiEvent[]; total: number }> => {
-  const q = params ? new URLSearchParams(params as any).toString() : '';
-  return fetchAPI(`/api/events${q ? '?' + q : ''}`);
+  const q = params ? new URLSearchParams(params as any).toString() : "";
+  return fetchAPI(`/api/events${q ? "?" + q : ""}`);
 };
 
 export const fetchEventById = (id: string): Promise<ApiEvent> =>
   fetchAPI(`/api/events/${id}`);
 
 export const reserveEvent = (eventId: string, quantity = 1) =>
-  fetchAPI('/api/bookings', {
-    method: 'POST',
+  fetchAPI("/api/bookings", {
+    method: "POST",
     body: JSON.stringify({ eventId, quantity }),
   });
 
 export const createAdminEvent = (data: Partial<ApiEvent>) =>
-  fetchAPI('/api/events', { method: 'POST', body: JSON.stringify(data) });
+  fetchAPI("/api/events", { method: "POST", body: JSON.stringify(data) });
 
 export const updateAdminEvent = (id: string, data: Partial<ApiEvent>) =>
   fetchAPI(`/api/events/${id}`, {
-    method: 'PATCH',
+    method: "PATCH",
     body: JSON.stringify(data),
   });
 
 export const deleteAdminEvent = (id: string) =>
-  fetchAPI(`/api/events/${id}`, { method: 'DELETE' });
+  fetchAPI(`/api/events/${id}`, { method: "DELETE" });
 
 /** Get events created by the current admin */
-export const fetchMyAdminEvents = (): Promise<{ events: ApiEvent[]; total: number }> =>
-  fetchAPI('/api/events/my-events');
+export const fetchMyAdminEvents = (): Promise<{
+  events: ApiEvent[];
+  total: number;
+}> => fetchAPI("/api/events/my-events");
 
 /** Get event location - only returned if user is booked AND within 10h of start */
 export const fetchEventLocation = (
   eventId: string,
-): Promise<{ location: string | null; revealed: boolean; minutesRemaining: number }> =>
-  fetchAPI(`/api/events/${eventId}/location`);
+): Promise<{
+  location: string | null;
+  revealed: boolean;
+  minutesRemaining: number;
+}> => fetchAPI(`/api/events/${eventId}/location`);
 
 /** Get attendees of an event (admin only) */
 export const fetchEventAttendees = (
@@ -141,18 +145,69 @@ export interface Booking {
   status: string;
   payment_status?: string;
   createdAt: string;
+  created_at?: string;
   event?: ApiEvent;
+  // فیلدهای غنی‌سازی شده برای ادمین
+  eventTitle?: string;
+  userName?: string;
+  userPhone?: string;
 }
 
-export const fetchMyBookings = (
-  status?: string,
-): Promise<Booking[]> =>
-  fetchAPI(`/api/bookings${status ? '?status=' + status : ''}`);
+export const fetchMyBookings = (status?: string): Promise<Booking[]> =>
+  fetchAPI(`/api/bookings${status ? "?status=" + status : ""}`);
 
 export const cancelBooking = (id: string, reason?: string) =>
   fetchAPI(`/api/bookings/${id}/cancel`, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify({ reason }),
+  });
+
+// ─── Admin Bookings ────────────────────────────────────────────────────────
+
+/**
+ * دریافت همه رزروها برای پنل ادمین
+ * بک‌اند: GET /api/admin/bookings?status=...
+ * پاسخ: { bookings: [...], total: number }
+ * هر booking شامل relations: user و event است
+ */
+export const fetchAllBookings = (params?: {
+  status?: string;
+  eventId?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ bookings: Booking[]; total: number }> => {
+  const q = params
+    ? Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== "")
+        .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+        .join("&")
+    : "";
+  return fetchAPI(`/api/admin/bookings${q ? "?" + q : ""}`).then((res) => {
+    const bookings: Booking[] = (res.bookings || []).map((b: any) => ({
+      ...b,
+      // یکسان‌سازی camelCase و snake_case
+      createdAt: b.createdAt || b.created_at || "",
+      eventId: b.eventId || b.event_id || "",
+      // غنی‌سازی از relations
+      eventTitle: b.event?.title || b.eventTitle || "",
+      userName: b.user?.name || b.userName || "",
+      userPhone: b.user?.mobileNumber || b.userPhone || "",
+    }));
+    return { bookings, total: res.total || bookings.length };
+  });
+};
+
+/**
+ * تغییر وضعیت رزرو توسط ادمین
+ * بک‌اند: PATCH /api/admin/bookings/:id  body: { status }
+ */
+export const updateBookingStatus = (
+  id: string,
+  status: "confirmed" | "cancelled" | string,
+): Promise<Booking> =>
+  fetchAPI(`/api/admin/bookings/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
   });
 
 // ─── Profile ──────────────────────────────────────────────────────────────
@@ -161,6 +216,7 @@ export interface UserProfile {
   bio?: string;
   interests: string[];
   city?: string;
+  neighborhood?: string;
   age?: number | null;
   gender?: string;
   /** education یا education_level - هر دو پشتیبانی می‌شوند */
@@ -185,39 +241,31 @@ export interface UserPublicProfile {
  */
 function normalizeProfile(raw: any): UserProfile {
   return {
-    avatarUrl: raw?.avatarUrl ?? raw?.avatar_url ?? '',
-    bio: raw?.bio ?? '',
+    avatarUrl: raw?.avatarUrl ?? raw?.avatar_url ?? "",
+    bio: raw?.bio ?? "",
     interests: Array.isArray(raw?.interests) ? raw.interests : [],
-    city: raw?.city ?? '',
+    city: raw?.city ?? "",
+    neighborhood: raw?.neighborhood ?? "",
     age: raw?.age ?? null,
-    gender: raw?.gender ?? '',
-    education: raw?.education ?? raw?.education_level ?? '',
-    completionPercentage: raw?.completionPercentage ?? raw?.profile_completion_percentage ?? 0,
-    firstName: raw?.firstName ?? raw?.first_name ?? '',
-    lastName: raw?.lastName ?? raw?.last_name ?? '',
+    gender: raw?.gender ?? "",
+    education: raw?.education ?? raw?.education_level ?? "",
+    completionPercentage:
+      raw?.completionPercentage ?? raw?.profile_completion_percentage ?? 0,
+    firstName: raw?.firstName ?? raw?.first_name ?? "",
+    lastName: raw?.lastName ?? raw?.last_name ?? "",
   };
 }
 
 export const fetchUserProfile = (): Promise<UserProfile> =>
-  fetchAPI('/api/profiles/me').then(normalizeProfile);
+  fetchAPI("/api/profiles/me").then(normalizeProfile);
 
 export const updateUserProfile = (
   data: Partial<UserProfile>,
 ): Promise<UserProfile> =>
-  fetchAPI('/api/profiles/me', {
-    method: 'PATCH',
+  fetchAPI("/api/profiles/me", {
+    method: "PATCH",
     body: JSON.stringify(data),
   }).then(normalizeProfile);
-
-/**
- * Update user name / avatar on the User entity (not profile)
- * Fixes: name not persisting to database in dev mode
- */
-export const updateUserName = (name: string): Promise<{ id: string; name: string }> =>
-  fetchAPI('/api/users/me', {
-    method: 'PATCH',
-    body: JSON.stringify({ name }),
-  });
 
 // ─── User Stats (for profile dashboard) ──────────────────────────────────
 export interface UserStats {
@@ -227,8 +275,15 @@ export interface UserStats {
   totalBookings: number;
 }
 
+// ─── Update user name ───────────────────────────────────────────────────────
+export const updateUserName = (name: string): Promise<any> =>
+  fetchAPI("/api/users/me", {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+
 export const fetchUserStats = (): Promise<UserStats> =>
-  fetchAPI('/api/users/stats').catch(() => ({
+  fetchAPI("/api/users/stats").catch(() => ({
     successfulMatches: 0,
     completedEvents: 0,
     upcomingEvents: 0,
@@ -243,32 +298,34 @@ export interface WalletInfo {
 
 export interface WalletTransaction {
   id: string;
-  type: 'charge' | 'debit' | 'refund';
+  type: "charge" | "debit" | "refund";
   amount: number;
   description: string;
-  status: 'completed' | 'pending' | 'failed';
+  status: "completed" | "pending" | "failed";
   createdAt: string;
   referenceId?: string;
 }
 
 export const fetchWallet = (): Promise<WalletInfo> =>
-  fetchAPI('/api/wallet').catch(() => ({ balance: 0, currency: 'IRR' }));
+  fetchAPI("/api/wallet").catch(() => ({ balance: 0, currency: "IRR" }));
 
 export const fetchWalletTransactions = (): Promise<WalletTransaction[]> =>
-  fetchAPI('/api/wallet/transactions').catch(() => []);
+  fetchAPI("/api/wallet/transactions").catch(() => []);
 
 export const chargeWallet = (amount: number, callbackUrl?: string) =>
-  fetchAPI('/api/wallet/charge', {
-    method: 'POST',
+  fetchAPI("/api/wallet/charge", {
+    method: "POST",
     body: JSON.stringify({
       amount,
-      callbackUrl: callbackUrl || `${typeof window !== 'undefined' ? window.location.origin : ''}/payment-success`,
+      callbackUrl:
+        callbackUrl ||
+        `${typeof window !== "undefined" ? window.location.origin : ""}/payment-success`,
     }),
   });
 
 export const withdrawFromWallet = (amount: number, reason: string) =>
-  fetchAPI('/api/wallet/withdraw', {
-    method: 'POST',
+  fetchAPI("/api/wallet/withdraw", {
+    method: "POST",
     body: JSON.stringify({ amount, reason }),
   });
 
@@ -283,7 +340,7 @@ export interface NotificationItem {
 export const fetchNotifications = (): Promise<{
   unread: number;
   items: NotificationItem[];
-}> => fetchAPI('/api/notifications');
+}> => fetchAPI("/api/notifications");
 
 // ─── Admin stats ──────────────────────────────────────────────────────────
 export interface AdminEventStat {
@@ -300,42 +357,57 @@ export const fetchAdminStats = (): Promise<{
   events: AdminEventStat[];
   totalEvents: number;
   avgSuccessRate: number;
-  totalUsers?: number;
-  totalBookings?: number;
-}> => Promise.all([
-  fetchAPI('/api/admin/stats').catch(() => ({ totalUsers: 0, totalEvents: 0, totalBookings: 0, avgSuccessRate: 0 })),
-  fetchAPI('/api/admin/event-stats').catch(() => ({ events: [], totalEvents: 0, avgSuccessRate: 0 })),
-]).then(([adminStats, eventStats]) => ({
-  events: eventStats.events || [],
-  totalEvents: adminStats.totalEvents || eventStats.totalEvents || 0,
-  avgSuccessRate: adminStats.avgSuccessRate || eventStats.avgSuccessRate || 0,
-  totalUsers: adminStats.totalUsers || 0,
-  totalBookings: adminStats.totalBookings || 0,
-})).catch(() => ({
-  events: [],
-  totalEvents: 0,
-  avgSuccessRate: 0,
-  totalUsers: 0,
-  totalBookings: 0,
-}));
+}> =>
+  fetchAPI("/api/admin/stats").catch(() => ({
+    events: [],
+    totalEvents: 0,
+    avgSuccessRate: 0,
+  }));
+
+// ─── Admin Analytics ──────────────────────────────────────────────────────
+export interface AdminAnalytics {
+  totalUsers: number;
+  totalBookings: number;
+  totalRevenue: number;
+  totalEvents: number;
+  bookingsPerMonth: { month: string; count: number }[];
+  categoryBreakdown: { category: string; count: number }[];
+  revenuePerMonth: { month: string; revenue: number }[];
+  topEvents: { title: string; bookings: number; revenue: number }[];
+  userGrowth: { month: string; count: number }[];
+}
+
+export const fetchAdminAnalytics = (): Promise<AdminAnalytics> =>
+  fetchAPI("/api/admin/analytics").catch(() => ({
+    totalUsers: 0,
+    totalBookings: 0,
+    totalRevenue: 0,
+    totalEvents: 0,
+    bookingsPerMonth: [],
+    categoryBreakdown: [],
+    revenuePerMonth: [],
+    topEvents: [],
+    userGrowth: [],
+  }));
 
 // ─── User public profile (admin only) ─────────────────────────────────────
-export const fetchUserPublicProfile = (userId: string): Promise<UserPublicProfile> =>
-  fetchAPI(`/api/admin/users/${userId}/profile`);
+export const fetchUserPublicProfile = (
+  userId: string,
+): Promise<UserPublicProfile> => fetchAPI(`/api/admin/users/${userId}/profile`);
 
 // ─── Subscriptions ────────────────────────────────────────────────────────
-export const fetchSubscription = () => fetchAPI('/api/subscriptions/me');
+export const fetchSubscription = () => fetchAPI("/api/subscriptions/me");
 export const subscribe = (plan: string) =>
-  fetchAPI('/api/subscriptions', {
-    method: 'POST',
+  fetchAPI("/api/subscriptions", {
+    method: "POST",
     body: JSON.stringify({ plan }),
   });
 
 // ─── Matching ─────────────────────────────────────────────────────────────
 export const matchingAPI = {
   run: (userId: string, criteria?: object) =>
-    fetchAPI('/api/matching/run', {
-      method: 'POST',
+    fetchAPI("/api/matching/run", {
+      method: "POST",
       body: JSON.stringify({ userId, criteria }),
     }),
   getDetails: (matchId: string) => fetchAPI(`/api/matching/${matchId}`),
@@ -345,115 +417,12 @@ export const matchingAPI = {
 export const api = {
   get: (e: string) => fetchAPI(e),
   post: (e: string, d: any) =>
-    fetchAPI(e, { method: 'POST', body: JSON.stringify(d) }),
+    fetchAPI(e, { method: "POST", body: JSON.stringify(d) }),
   put: (e: string, d: any) =>
-    fetchAPI(e, { method: 'PUT', body: JSON.stringify(d) }),
+    fetchAPI(e, { method: "PUT", body: JSON.stringify(d) }),
   patch: (e: string, d: any) =>
-    fetchAPI(e, { method: 'PATCH', body: JSON.stringify(d) }),
-  delete: (e: string) => fetchAPI(e, { method: 'DELETE' }),
+    fetchAPI(e, { method: "PATCH", body: JSON.stringify(d) }),
+  delete: (e: string) => fetchAPI(e, { method: "DELETE" }),
 };
 
 export default api;
-
-// ─── Events Admin API ─────────────────────────────────────────────────────
-export const eventsAPI = {
-  get: (id: string) => fetchAPI(`/api/events/${id}`),
-  update: (id: string, data: any) =>
-    fetchAPI(`/api/events/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  updateLocationAndNotify: (id: string, location: string, city: string) =>
-    fetchAPI(`/api/events/${id}/location`, {
-      method: 'PUT',
-      body: JSON.stringify({ location, city, notify: true }),
-    }),
-};
-
-// ─── Organizer (Mansour & other hosts) ────────────────────────────────────
-export const ORGANIZER_PHONES = [
-  '09120000001', // Mansour - replace with real number
-];
-
-export function isOrganizerPhone(phone?: string | null): boolean {
-  if (!phone) return false;
-  const normalized = phone.replace(/\s|-/g, '');
-  return ORGANIZER_PHONES.includes(normalized) || isAdminPhone(phone);
-}
-
-/** Create event as organizer */
-export const createOrganizerEvent = (data: Partial<ApiEvent> & {
-  features?: string[];
-  exactLocation?: string;
-}) =>
-  fetchAPI('/api/events', { method: 'POST', body: JSON.stringify({
-    ...data,
-    organizer: true,
-  })});
-
-// ─── Admin: All users ──────────────────────────────────────────────────────
-export interface AdminUser {
-  id: string;
-  name?: string;
-  mobileNumber?: string;
-  city?: string;
-  role?: string;
-  isProfileComplete?: boolean;
-  createdAt?: string;
-  bookingCount?: number;
-}
-
-export const fetchAllUsers = (params?: { city?: string; page?: number; limit?: number }): Promise<{
-  users: AdminUser[];
-  total: number;
-}> =>
-  fetchAPI(`/api/admin/users${params ? '?' + new URLSearchParams(params as any) : ''}`)
-    .catch(() => ({ users: [], total: 0 }));
-
-export const fetchAllBookings = (params?: { eventId?: string; status?: string }): Promise<{
-  bookings: Booking[];
-  total: number;
-}> =>
-  fetchAPI(`/api/admin/bookings${params ? '?' + new URLSearchParams(params as any) : ''}`)
-    .catch(() => ({ bookings: [], total: 0 }));
-
-export const updateBookingStatus = (bookingId: string, status: 'confirmed' | 'cancelled') =>
-  fetchAPI(`/api/admin/bookings/${bookingId}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-  });
-
-export const fetchAdminAnalytics = (): Promise<{
-  totalUsers: number;
-  totalBookings: number;
-  totalRevenue: number;
-  totalEvents: number;
-  bookingsPerMonth: { month: string; count: number }[];
-  categoryBreakdown: { category: string; count: number }[];
-  revenuePerMonth: { month: string; revenue: number }[];
-  topEvents: { title: string; bookings: number; revenue: number }[];
-}> =>
-  fetchAPI('/api/admin/analytics').catch(() => ({
-    totalUsers: 0, totalBookings: 0, totalRevenue: 0, totalEvents: 0,
-    bookingsPerMonth: [], categoryBreakdown: [], revenuePerMonth: [], topEvents: [],
-  }));
-
-export const deleteEvent = (id: string) =>
-  fetchAPI(`/api/events/${id}`, { method: 'DELETE' });
-
-// ─── آپلود تصویر همنشینی (multipart) ──────────────────────────────────────
-export async function uploadEventImage(file: File): Promise<string> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  const formData = new FormData();
-  formData.append('image', file);
-
-  const res = await fetch(`${API_URL}/api/upload/event-image`, {
-    method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: formData,
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'خطا در آپلود تصویر' }));
-    throw new Error(err.message || 'خطا در آپلود تصویر');
-  }
-  const data = await res.json();
-  return data.imageUrl as string;
-}

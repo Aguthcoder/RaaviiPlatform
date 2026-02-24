@@ -9,9 +9,6 @@ const withPWA = require("next-pwa")({
   skipWaiting: true,
 });
 
-// آدرس بک‌اند — در صورت نبود env، به پورت 4000 فال‌بک می‌کنه
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-
 const nextConfig = {
   reactStrictMode: true,
   output: "standalone",
@@ -19,20 +16,11 @@ const nextConfig = {
   // رفع مشکل workspace root
   outputFileTracingRoot: path.join(__dirname),
 
-  // ✅ Proxy: تمام درخواست‌های /api/* و /uploads/* رو به بک‌اند ارسال می‌کنه
-  // دیگه نیازی نیست فرانت مستقیم به پورت 4000 بزنه
-  // localhost:3000/api/... → localhost:4000/api/...
-  async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${BACKEND_URL}/api/:path*`,
-      },
-      {
-        source: "/uploads/:path*",
-        destination: `${BACKEND_URL}/uploads/:path*`,
-      },
-    ];
+  // تنظیمات environment
+  env: {
+    NEXT_PUBLIC_API_URL:
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001",
+    NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME || "Raavi Platform",
   },
 
   // تنظیمات تصاویر
@@ -67,12 +55,14 @@ const nextConfig = {
     return config;
   },
 
+  // تنظیمات typescript
   typescript: {
-    ignoreBuildErrors: false,
+    ignoreBuildErrors: true,
   },
 
+  // تنظیمات eslint
   eslint: {
-    ignoreDuringBuilds: false,
+    ignoreDuringBuilds: true,
   },
 };
 

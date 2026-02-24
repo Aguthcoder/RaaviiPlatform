@@ -21,7 +21,7 @@ class UpdateUserDto {
   avatar?: string;
 }
 
-@Controller('api/users')
+@Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(private usersService: UsersService) {}

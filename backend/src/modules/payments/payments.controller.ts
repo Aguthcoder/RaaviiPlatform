@@ -11,7 +11,7 @@ import { User } from '../users/entities/user.entity';
 const ZARINPAL_MERCHANT = process.env.ZARINPAL_MERCHANT_ID || '';
 const IS_DEV = process.env.NODE_ENV !== 'production';
 
-@Controller('api/payments')
+@Controller('payments')
 export class PaymentsController {
   constructor(
     @InjectRepository(Payment) private paymentRepo: Repository<Payment>,
@@ -73,7 +73,7 @@ export class PaymentsController {
           authority,
         }),
       });
-      const data = await res.json();
+      const data = await res.json() as any;
 
       if (data?.data?.code !== 100 && data?.data?.code !== 101) {
         payment.status = 'failed';

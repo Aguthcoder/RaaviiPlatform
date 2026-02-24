@@ -21,6 +21,8 @@ export interface User {
   isProfileComplete?: boolean;
   isTestTaken?: boolean;
   city?: string;
+  telegram_id?: string;
+  telegram_username?: string;
 }
 
 export interface AppState {
@@ -55,56 +57,74 @@ function computeProfileComplete(
 }
 
 /**
- * ✅ خوندن synchronous از localStorage قبل از اولین render
- * این تابع فقط در browser اجرا می‌شه (SSR safe)
- * باعث می‌شه state اولیه درست باشه و flash نداشته باشیم
+ * بررسی انقضای توکن JWT بدون نیاز به درخواست شبکه
+ */
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    if (!payload.exp) return false;
+    // ۳۰ ثانیه مارجین برای احتیاط
+    return payload.exp * 1000 < Date.now() - 30_000;
+  } catch {
+    return true; // اگه parse نشد → expired فرض کن
+  }
+}
+
+/**
+ * خواندن state اولیه از localStorage — فقط اگه token معتبر باشه
  */
 function readInitialStateFromStorage(): Pick<
   AppState,
   "user" | "city" | "isLoggedIn" | "isProfileComplete" | "isTestTaken"
 > {
-  if (typeof window === "undefined") {
-    return {
-      user: null,
-      city: null,
-      isLoggedIn: false,
-      isProfileComplete: false,
-      isTestTaken: false,
-    };
-  }
-  try {
-    const token = localStorage.getItem("token");
-    const savedUser = localStorage.getItem("user");
-    const savedCity = localStorage.getItem("city");
-    if (token && savedUser) {
-      const user = JSON.parse(savedUser) as User;
-      const city = savedCity || user.city || null;
-      return {
-        user,
-        city,
-        isLoggedIn: true,
-        isProfileComplete: computeProfileComplete(user, city),
-        isTestTaken: !!user.isTestTaken,
-      };
-    }
-  } catch {}
-  return {
+  const empty = {
     user: null,
     city: null,
     isLoggedIn: false,
     isProfileComplete: false,
     isTestTaken: false,
   };
+
+  if (typeof window === "undefined") return empty;
+
+  try {
+    const token = localStorage.getItem("token");
+    const savedUser = localStorage.getItem("user");
+    const savedCity = localStorage.getItem("city");
+
+    // اگه token نداریم یا منقضی شده → پاک کن و false برگردون
+    if (!token || !savedUser) return empty;
+
+    if (isTokenExpired(token)) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("city");
+      document.cookie = "token=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      console.warn("[Auth] Token expired — cleared storage");
+      return empty;
+    }
+
+    const user = JSON.parse(savedUser) as User;
+    const city = savedCity || user.city || null;
+    return {
+      user,
+      city,
+      isLoggedIn: true,
+      isProfileComplete: computeProfileComplete(user, city),
+      isTestTaken: !!user.isTestTaken,
+    };
+  } catch {
+    return empty;
+  }
 }
 
 /* ================= INITIAL STATE ================= */
 
-// ✅ state اولیه از localStorage خونده می‌شه — نه null
 const storedState = readInitialStateFromStorage();
 
 const initialState: AppState = {
   isLoggedIn: storedState.isLoggedIn,
-  // اگه user داریم دیگه نیازی به loading نیست
+  // اگه user از storage خوندیم loading نیازی نداریم، وگرنه true
   isLoading: !storedState.isLoggedIn,
   user: storedState.user,
   city: storedState.city,
@@ -195,19 +215,57 @@ export default function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
-    // اگه user از storage خونده شده، loading رو false کن
-    dispatch({ type: "SET_LOADING", payload: false });
+    const token = localStorage.getItem("token");
+    const savedUser = localStorage.getItem("user");
 
-    // ✅ اگه user لاگین بود، localStorage رو refresh کن
-    // (مثلاً اگه token جدید گرفته شده)
-    try {
-      const token = localStorage.getItem("token");
-      const savedUser = localStorage.getItem("user");
-      if (token && savedUser && !state.isLoggedIn) {
-        const user = JSON.parse(savedUser);
-        dispatch({ type: "SET_USER", payload: user });
+    // حالت ۱: هیچ token ای نداریم → مطمئن بشیم loading false میشه
+    if (!token || !savedUser) {
+      dispatch({ type: "SET_LOADING", payload: false });
+      return;
+    }
+
+    // حالت ۲: token داریم → با بک‌اند validate کن
+    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    const savedCity = localStorage.getItem("city");
+
+    // helper: لود user + شهر از API پروفایل
+    const loadUserAndCity = (user: any) => {
+      dispatch({ type: "SET_USER", payload: user });
+      if (!savedCity) {
+        fetch(`${API}/api/profiles/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((profile) => {
+            const city = profile?.city || profile?.data?.city || "";
+            if (city) {
+              localStorage.setItem("city", city);
+              dispatch({ type: "SET_CITY", payload: city });
+            }
+          })
+          .catch(() => {});
       }
-    } catch {}
+    };
+
+    fetch(`${API}/api/users/stats`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (res.status === 401 || res.status === 403) {
+          console.warn("[Auth] Token rejected by server — logging out");
+          dispatch({ type: "LOGOUT" });
+        } else if (res.ok) {
+          const user = JSON.parse(savedUser);
+          loadUserAndCity(user);
+        } else {
+          dispatch({ type: "SET_LOADING", payload: false });
+        }
+      })
+      .catch(() => {
+        console.warn("[Auth] Backend unreachable — using cached auth");
+        const user = JSON.parse(savedUser);
+        loadUserAndCity(user);
+      });
   }, []);
 
   const value = useMemo<AppContextType>(
@@ -220,6 +278,8 @@ export default function AppProvider({ children }: { children: ReactNode }) {
       login: (user, token) => {
         localStorage.setItem("token", token);
         localStorage.setItem("user", JSON.stringify(user));
+        // cookie برای middleware سرور
+        document.cookie = `token=${token}; path=/; max-age=604800; SameSite=Lax`;
         dispatch({ type: "LOGIN", payload: user });
       },
       logout: () => dispatch({ type: "LOGOUT" }),

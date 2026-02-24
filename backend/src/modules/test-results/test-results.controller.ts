@@ -12,7 +12,7 @@ import { TestResultsService } from './test-results.service';
 import { CreateTestResultDto } from './dto/create-test-result.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@Controller('api/test-results')
+@Controller('test-results')
 @UseGuards(JwtAuthGuard)
 export class TestResultsController {
   constructor(private testResultsService: TestResultsService) {}

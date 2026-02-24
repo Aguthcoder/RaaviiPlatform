@@ -1,61 +1,56 @@
-"use client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+﻿"use client";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useApp } from "@/context/AppContext";
-
-const TESTIMONIALS = [
-  {
-    name: "سارا م.",
-    role: "کاربر راوی",
-    text: "تجربه‌ای که زندگیم رو تغییر داد. تحلیل‌های هوش مصنوعی واقعاً شگفت‌انگیز بود.",
-    rating: 5,
-  },
-  {
-    name: "علی ر.",
-    role: "کاربر راوی",
-    text: "فضا خیلی دوستانه بود، گفتگوها کیفیت داشت و با افراد هم‌فکر آشنا شدم.",
-    rating: 5,
-  },
-  {
-    name: "مینا ن.",
-    role: "کاربر راوی",
-    text: "مطمئن بودم فضا ایمنه و همین باعث شد راحت‌تر گفتگو کنم. عالی بود!",
-    rating: 5,
-  },
-];
+import { testimonialsData } from "@/lib/testimonials";
 
 type Mode = "login" | "signup";
 
-// Generate 15 circles with random positions, sizes, and animation params
-const CIRCLES = Array.from({ length: 15 }, (_, i) => ({
-  id: i,
-  size: 40 + Math.floor(Math.random() * 60), // 40-100px
-  x: Math.floor(Math.random() * 100),
-  y: Math.floor(Math.random() * 100),
-  duration: 8 + Math.floor(Math.random() * 14), // 8-22s
-  delay: Math.floor(Math.random() * 6),
-  opacity: 0.55 + Math.random() * 0.35, // 0.55-0.9
-}));
-
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen" style={{ background: "transparent" }} />
+      }
+    >
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/dashboard";
   const { login } = useApp();
+
   const [mode, setMode] = useState<Mode>("login");
   const [phone, setPhone] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
-  const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [testimonial, setTestimonial] = useState(TESTIMONIALS[0]);
   const [mounted, setMounted] = useState(false);
+  const [testimonialIdx, setTestimonialIdx] = useState(0);
+  const [fade, setFade] = useState(true);
 
   const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
   useEffect(() => {
     setMounted(true);
-    setTestimonial(TESTIMONIALS[Math.floor(Math.random() * TESTIMONIALS.length)]);
+    // چرخش نظرات هر ۳ ثانیه
+    const iv = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setTestimonialIdx((p) => (p + 1) % testimonialsData.length);
+        setFade(true);
+      }, 300);
+    }, 3000);
+    return () => clearInterval(iv);
   }, []);
 
   const isValidPhone = (v: string) => /^09\d{9}$/.test(v.replace(/\s/g, ""));
@@ -63,9 +58,13 @@ export default function LoginPage() {
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!isValidPhone(phone)) {
-      setError("شماره موبایل معتبر نیست. مثال: 09123456789");
-      return;
+    if (!isValidPhone(phone))
+      return setError("شماره موبایل معتبر نیست. مثال: 09123456789");
+    if (mode === "signup") {
+      if (!firstName.trim() || firstName.trim().length < 2)
+        return setError("نام باید حداقل ۲ حرف باشد.");
+      if (!lastName.trim() || lastName.trim().length < 2)
+        return setError("نام خانوادگی باید حداقل ۲ حرف باشد.");
     }
     setLoading(true);
     try {
@@ -79,7 +78,7 @@ export default function LoginPage() {
       setOtpSent(true);
       if (data.dev_code) {
         setOtpCode(data.dev_code);
-        setError("[DEV] کد خودکار وارد شد: " + data.dev_code);
+        setError("[DEV] کد: " + data.dev_code);
       }
     } catch (err: any) {
       setError(err.message);
@@ -93,24 +92,32 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
+      const fullName =
+        mode === "signup"
+          ? `${firstName.trim()} ${lastName.trim()}`
+          : undefined;
       const res = await fetch(`${API}/api/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           phone: phone.replace(/\s/g, ""),
           code: otpCode,
-          name,
+          name: fullName,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "کد تایید نامعتبر است");
       localStorage.setItem("token", data.access_token);
-      document.cookie = `token=${data.access_token}; path=/; max-age=604800`;
+      document.cookie = `token=${data.access_token}; path=/; max-age=604800; SameSite=Lax`;
       if (data.user) {
         localStorage.setItem("user", JSON.stringify(data.user));
         login(data.user, data.access_token);
+        if (!data.user.isTestTaken || !data.user.isProfileComplete) {
+          router.push("/dashboard/complete-profile");
+          return;
+        }
       }
-      router.push("/dashboard");
+      router.push(redirectTo);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -118,187 +125,344 @@ export default function LoginPage() {
     }
   };
 
+  const t = testimonialsData[testimonialIdx];
   const inp =
-    "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition placeholder:text-slate-400";
+    "w-full border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white outline-none focus:ring-2 focus:ring-orange-400 transition placeholder:text-slate-400";
   const btn =
-    "w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white font-bold py-3.5 rounded-xl transition shadow-lg shadow-orange-200 disabled:opacity-60 disabled:cursor-not-allowed";
+    "w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-orange-200 disabled:opacity-60 text-base";
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-white" dir="rtl">
-      {/* Animated Orange Circles Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Blur overlay for depth */}
-        <div className="absolute inset-0 backdrop-blur-[1px] z-10" />
-        {mounted && CIRCLES.map((circle) => (
-          <div
-            key={circle.id}
-            className="absolute rounded-full bg-orange-500"
-            style={{
-              width: `${circle.size}px`,
-              height: `${circle.size}px`,
-              left: `${circle.x}%`,
-              top: `${circle.y}%`,
-              opacity: circle.opacity,
-              animation: `floatCircle${circle.id % 5} ${circle.duration}s ${circle.delay}s ease-in-out infinite alternate`,
-            }}
-          />
-        ))}
-      </div>
-
-      <style jsx global>{`
-        @keyframes floatCircle0 {
-          0% { transform: translate(0, 0) scale(1); }
-          100% { transform: translate(30px, -50px) scale(1.1); }
-        }
-        @keyframes floatCircle1 {
-          0% { transform: translate(0, 0) scale(1); }
-          100% { transform: translate(-40px, 40px) scale(0.9); }
-        }
-        @keyframes floatCircle2 {
-          0% { transform: translate(0, 0) scale(1); }
-          100% { transform: translate(50px, 30px) scale(1.15); }
-        }
-        @keyframes floatCircle3 {
-          0% { transform: translate(0, 0) scale(1); }
-          100% { transform: translate(-30px, -60px) scale(0.85); }
-        }
-        @keyframes floatCircle4 {
-          0% { transform: translate(0, 0) scale(1); }
-          100% { transform: translate(20px, 50px) scale(1.2); }
-        }
-      `}</style>
-
-      {/* Card */}
-      <div className="relative z-20 w-full max-w-md mx-4 bg-white rounded-3xl shadow-2xl shadow-orange-200/40 p-8 border border-slate-100">
-        {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-300">
-            <span className="text-white text-2xl font-black">ر</span>
-          </div>
-        </div>
-
-        {/* Back link */}
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6 transition"
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      dir="rtl"
+    >
+      {/* ── کارت اصلی دو ستونه ── */}
+      <div
+        className="w-full max-w-4xl rounded-[2rem] shadow-2xl overflow-hidden flex min-h-[600px]"
+        style={{
+          background: "rgba(15,23,42,0.75)",
+          backdropFilter: "blur(20px)",
+          border: "1px solid rgba(255,255,255,0.08)",
+        }}
+      >
+        {/* ── ستون چپ: فرم ── */}
+        <div
+          className="flex-1 p-8 md:p-10 flex flex-col justify-between relative"
+          style={{ background: "rgba(10,22,40,0.6)" }}
         >
-          <svg className="w-4 h-4 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-          بازگشت به خانه
-        </Link>
+          {/* بک‌گراند blob های سفید */}
+          {mounted && (
+            <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-r-[2rem]">
+              <div className="absolute top-0 -left-10 w-[300px] h-[300px] bg-orange-400/10 rounded-full mix-blend-multiply filter blur-[60px] animate-blob" />
+              <div className="absolute bottom-0 right-0 w-[250px] h-[250px] bg-yellow-400/10 rounded-full mix-blend-multiply filter blur-[60px] animate-blob animation-delay-2000" />
+              <div className="absolute top-1/2 left-1/2 w-[200px] h-[200px] bg-orange-300/10 rounded-full mix-blend-multiply filter blur-[60px] animate-blob animation-delay-4000" />
+            </div>
+          )}
 
-        {/* Header */}
-        <div className="mb-7 text-center">
-          <div className="text-4xl mb-2">👋</div>
-          <h2 className="text-2xl font-black text-slate-900">خوش آمدید</h2>
-          <p className="text-slate-500 mt-1 text-sm">
-            {!otpSent
-              ? "لطفاً برای ادامه شماره موبایل خود را وارد کنید."
-              : `کد تایید به ${phone} ارسال شد.`}
-          </p>
+          <div className="relative z-10">
+            {/* بازگشت */}
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 mb-8 transition"
+            >
+              ← بازگشت به خانه
+            </Link>
+
+            {/* تیتر */}
+            {!otpSent ? (
+              <>
+                <div className="mb-6">
+                  <div className="text-3xl mb-1">👋</div>
+                  <h2 className="text-2xl font-black text-white">خوش آمدید</h2>
+                  <p className="text-slate-400 mt-1 text-sm">
+                    {mode === "login"
+                      ? "لطفا برای ادامه شماره موبایل خود را وارد کنید."
+                      : "اطلاعات خود را برای ثبت‌نام وارد کنید."}
+                  </p>
+                </div>
+
+                {/* تب ورود / ثبت‌نام */}
+                <div className="flex bg-white/10 p-1 rounded-2xl mb-6">
+                  {(["login", "signup"] as Mode[]).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => {
+                        setMode(m);
+                        setError("");
+                      }}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                        mode === m
+                          ? "bg-white/20 text-white shadow-sm"
+                          : "text-slate-400"
+                      }`}
+                    >
+                      {m === "login" ? "ورود" : "ثبت نام"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* خطا */}
+                {error && (
+                  <div
+                    className={`mb-4 px-4 py-3 rounded-xl text-sm ${
+                      error.startsWith("[DEV]")
+                        ? "bg-blue-50 text-blue-700 border border-blue-200"
+                        : "bg-red-50 text-red-600 border border-red-200"
+                    }`}
+                  >
+                    {error}
+                  </div>
+                )}
+
+                <form onSubmit={handleSendOtp} className="space-y-3">
+                  {/* نام و نام‌خانوادگی — فقط ثبت‌نام */}
+                  {mode === "signup" && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                          نام
+                        </label>
+                        <input
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          className={inp}
+                          placeholder="علی"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                          نام خانوادگی
+                        </label>
+                        <input
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          className={inp}
+                          placeholder="رضایی"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* شماره موبایل */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      شماره موبایل
+                    </label>
+                    <div className="relative">
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                        📱
+                      </span>
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) =>
+                          setPhone(e.target.value.replace(/[^\d]/g, ""))
+                        }
+                        className={`${inp} pr-10 text-left`}
+                        placeholder="09123456789"
+                        dir="ltr"
+                        maxLength={11}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <button type="submit" disabled={loading} className={btn}>
+                    {loading
+                      ? "در حال ارسال..."
+                      : mode === "login"
+                        ? "ورود ←"
+                        : "ثبت نام کنید ←"}
+                  </button>
+                </form>
+              </>
+            ) : (
+              /* ── مرحله OTP ── */
+              <>
+                <div className="mb-6">
+                  <div className="text-3xl mb-1">🔐</div>
+                  <h2 className="text-2xl font-black text-white">کد تایید</h2>
+                  <p className="text-slate-400 mt-1 text-sm">
+                    کد ۶ رقمی ارسال‌شده به{" "}
+                    <span className="font-bold text-slate-200">{phone}</span> را
+                    وارد کنید.
+                  </p>
+                </div>
+
+                {error && (
+                  <div
+                    className={`mb-4 px-4 py-3 rounded-xl text-sm ${
+                      error.startsWith("[DEV]")
+                        ? "bg-blue-50 text-blue-700 border border-blue-200"
+                        : "bg-red-50 text-red-600 border border-red-200"
+                    }`}
+                  >
+                    {error}
+                  </div>
+                )}
+
+                <form onSubmit={handleVerifyOtp} className="space-y-3">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={otpCode}
+                    onChange={(e) =>
+                      setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
+                    className="w-full bg-white/10 border border-white/10 rounded-2xl px-4 py-5 text-center text-3xl font-black text-white tracking-[0.5em] outline-none focus:ring-2 focus:ring-orange-400 transition"
+                    placeholder="------"
+                    maxLength={6}
+                    dir="ltr"
+                    autoFocus
+                    required
+                  />
+                  <button
+                    type="submit"
+                    disabled={loading || otpCode.length !== 6}
+                    className={btn}
+                  >
+                    {loading ? "در حال تایید..." : "تایید کد ←"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtpSent(false);
+                      setOtpCode("");
+                      setError("");
+                    }}
+                    className="w-full text-sm text-slate-400 hover:text-orange-500 py-2 transition"
+                  >
+                    ← اصلاح شماره موبایل
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
+
+          {/* پایین فرم */}
+          <div className="relative z-10 mt-6 space-y-3">
+            {/* دکمه ورود همکاران */}
+            <div className="border-t border-white/10 pt-4">
+              <Link href="/cafe/login">
+                <button className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold py-3 rounded-2xl transition shadow-md active:scale-[0.98]">
+                  <span>☕</span>
+                  ورود همکاران
+                </button>
+              </Link>
+            </div>
+
+            <div className="flex justify-center gap-4 text-xs text-slate-400">
+              <Link href="/terms" className="hover:text-slate-300 transition">
+                قوانین و مقررات
+              </Link>
+              <span>•</span>
+              <Link href="/privacy" className="hover:text-slate-300 transition">
+                حریم خصوصی
+              </Link>
+              <span>•</span>
+              <Link href="/about" className="hover:text-slate-300 transition">
+                پشتیبانی
+              </Link>
+            </div>
+          </div>
         </div>
 
-        {/* Mode tabs */}
-        {!otpSent && (
-          <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
-            {(["login", "signup"] as Mode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => { setMode(m); setError(""); }}
-                className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition ${
-                  mode === m ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
-                }`}
-              >
-                {m === "login" ? "ورود" : "ثبت نام"}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* ── ستون راست: سورمه‌ای ── */}
+        <div className="hidden md:flex w-[42%] bg-[#1e2535] flex-col justify-between p-8 relative overflow-hidden">
+          {/* دایره‌های دکوراتیو پس‌زمینه */}
+          <div className="absolute top-[-60px] right-[-60px] w-[220px] h-[220px] rounded-full bg-white/5" />
+          <div className="absolute top-[-20px] right-[-20px] w-[140px] h-[140px] rounded-full bg-white/5" />
+          <div className="absolute bottom-[-80px] left-[-40px] w-[260px] h-[260px] rounded-full bg-orange-500/10" />
 
-        {/* Error / Info */}
-        {error && (
-          <div className={`mb-4 px-4 py-3 rounded-xl text-sm ${
-            error.startsWith("[DEV]")
-              ? "bg-blue-50 text-blue-700 border border-blue-200"
-              : "bg-red-50 text-red-600 border border-red-200"
-          }`}>
-            {error}
+          {/* هدر سورمه‌ای */}
+          <div className="relative z-10 flex items-center justify-between">
+            <Image
+              src="/logo.png"
+              alt="راوی"
+              width={70}
+              height={70}
+              className="object-contain brightness-0 invert opacity-90"
+            />
+            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white text-lg">
+              ✦
+            </div>
           </div>
-        )}
 
-        {/* OTP Flow */}
-        {!otpSent ? (
-          <form onSubmit={handleSendOtp} className="space-y-4">
-            {mode === "signup" && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">نام و نام خانوادگی</label>
-                <div className="relative">
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">👤</span>
-                  <input value={name} onChange={(e) => setName(e.target.value)} className={`${inp} pr-9`} placeholder="نام کامل" />
+          {/* محتوای وسط */}
+          <div className="relative z-10 flex-1 flex flex-col justify-center py-8">
+            <div className="w-14 h-14 bg-[#2a3347] rounded-2xl flex items-center justify-center mb-6 text-2xl shadow-lg">
+              ✨
+            </div>
+            <h3 className="text-white text-3xl font-black leading-snug mb-4">
+              هوشمندانه
+              <br />
+              انتخاب کن
+            </h3>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              با ورود به راوی، به جامعه‌ای از افراد می‌پیوندید که به دنبال روابط
+              معنادار بر پایه علم روانشناسی هستند.
+            </p>
+          </div>
+
+          {/* کارت نظر — داینامیک */}
+          <div className="relative z-10">
+            <div
+              className="bg-[#2a3347] rounded-2xl p-5 transition-all duration-300"
+              style={{
+                opacity: fade ? 1 : 0,
+                transform: fade ? "translateY(0)" : "translateY(6px)",
+              }}
+            >
+              {/* ستاره‌ها */}
+              <div className="flex gap-1 mb-3">
+                {Array.from({ length: t?.rating || 5 }).map((_, i) => (
+                  <span key={i} className="text-orange-400 text-sm">
+                    ★
+                  </span>
+                ))}
+                {Array.from({ length: 5 - (t?.rating || 5) }).map((_, i) => (
+                  <span key={i} className="text-slate-300 text-sm">
+                    ★
+                  </span>
+                ))}
+              </div>
+              <p className="text-slate-300 text-sm leading-relaxed mb-4">
+                «{t?.message}»
+              </p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 text-xs font-bold">
+                    {t?.initials}
+                  </div>
+                  <div>
+                    <p className="text-white text-xs font-bold">{t?.name}</p>
+                    <p className="text-slate-400 text-[10px]">{t?.role}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] text-emerald-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  آنلاین
                 </div>
               </div>
-            )}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">شماره موبایل</label>
-              <div className="relative">
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">📱</span>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/[^\d]/g, ""))}
-                  className={`${inp} pr-10 text-left`}
-                  placeholder="09123456789"
-                  dir="ltr"
-                  maxLength={11}
-                  required
-                />
-              </div>
             </div>
-            <button type="submit" disabled={loading} className={btn}>
-              {loading ? "در حال ارسال..." : "دریافت کد تایید ←"}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerifyOtp} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">کد ۶ رقمی</label>
-              <div className="relative">
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">🔐</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 text-center text-2xl font-bold tracking-[1em] outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition"
-                  placeholder="------"
-                  maxLength={6}
-                  dir="ltr"
-                  autoFocus
-                  required
-                />
-              </div>
-            </div>
-            <button type="submit" disabled={loading || otpCode.length !== 6} className={btn}>
-              {loading ? "در حال تایید..." : "تایید کد ←"}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setOtpSent(false); setOtpCode(""); setError(""); }}
-              className="w-full text-sm text-slate-500 hover:text-orange-500 py-2 transition"
-            >
-              اصلاح شماره موبایل
-            </button>
-          </form>
-        )}
 
-        {/* Footer links */}
-        <div className="mt-7 flex justify-center gap-4 text-xs text-slate-400">
-          <Link href="/terms" className="hover:text-slate-600 transition">قوانین و مقررات</Link>
-          <span>•</span>
-          <Link href="/privacy" className="hover:text-slate-600 transition">حریم خصوصی</Link>
-          <span>•</span>
-          <Link href="/about" className="hover:text-slate-600 transition">پشتیبانی</Link>
+            {/* نقاط نشانگر */}
+            <div className="flex justify-center gap-1.5 mt-3">
+              {testimonialsData.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setTestimonialIdx(i)}
+                  className={`rounded-full transition-all ${
+                    i === testimonialIdx
+                      ? "w-4 h-1.5 bg-orange-400"
+                      : "w-1.5 h-1.5 bg-white/20 hover:bg-white/40"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -551,7 +551,7 @@ export default function EventsPage() {
     const token = localStorage.getItem("token");
     if (!token) return;
 
-    // بررسی آیا رویداد تمام‌شده‌ای هست که نیاز به رتینگ داشته باشد
+    // بررسی آیا همنشینی تمام‌شده‌ای هست که نیاز به رتینگ داشته باشد
     fetch(
       `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/bookings`,
       { headers: { Authorization: `Bearer ${token}` } },
@@ -697,7 +697,7 @@ export default function EventsPage() {
               <p className="text-[11px] opacity-80 mt-0.5 line-clamp-1">
                 {activeCat
                   ? activeCat.banner
-                  : "رویدادهایی برای آدم‌های کنجکاو"}
+                  : "همنشینی‌هایی برای آدم‌های کنجکاو"}
               </p>
               <button
                 onClick={() => {
@@ -759,7 +759,7 @@ export default function EventsPage() {
               >
                 <MapPin size={18} className="text-orange-500 flex-shrink-0" />
                 <p className="text-sm text-orange-700 font-bold">
-                  برای دیدن رویدادهای شهرت، ابتدا شهر رو انتخاب کن
+                  برای دیدن همنشینی‌های شهرت، ابتدا شهر رو انتخاب کن
                 </p>
                 <ChevronLeft
                   size={16}

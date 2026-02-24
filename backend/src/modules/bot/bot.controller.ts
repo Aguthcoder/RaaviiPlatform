@@ -1,241 +1,348 @@
-/**
- * Bot Module - اندپوینت‌های داخلی برای ربات تلگرام
- * ادغام با n8n و ربات تلگرام
- */
-
 import {
-  Controller, Post, Get, Body, Headers,
-  UnauthorizedException, Logger,
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Headers,
+  Request,
+  UseGuards,
+  NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from '../users/entities/user.entity';
+import * as crypto from 'crypto';
+
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
+import { User } from '../../database/entities/user.entity';
 import { Profile } from '../profiles/entities/profile.entity';
-import { SmartProfile } from '../smart-profile/smart-profile.entity';
-import { MatchingService } from '../matching/matching.service';
-import { AiContentService } from '../ai-content/ai-content.service';
+import { Event } from '../events/entities/event.entity';
 
-const BOT_SECRET = process.env.BOT_WEBHOOK_SHARED_SECRET || 'ravi-bot-secret-2024';
+// ─────────────────────────────────────────────────────────────
+// in-memory store برای توکن‌های deep link (۱۰ دقیقه)
+// ─────────────────────────────────────────────────────────────
 
-function verifyBotSecret(secret: string) {
-  if (secret !== BOT_SECRET) {
-    throw new UnauthorizedException('دسترسی غیرمجاز');
+const linkTokenStore = new Map<string, { userId: string; expiresAt: number }>();
+
+// پاکسازی هر ۵ دقیقه
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [token, data] of linkTokenStore.entries()) {
+      if (data.expiresAt < now) {
+        linkTokenStore.delete(token);
+      }
+    }
+  },
+  5 * 60 * 1000,
+);
+
+// ─────────────────────────────────────────────────────────────
+
+function verifyBotSecret(secret?: string) {
+  if (!secret || secret !== process.env.RAVI_BOT_SECRET) {
+    throw new UnauthorizedException('Invalid bot secret');
   }
 }
 
-@Controller('api/bot')
-export class BotController {
-  private readonly logger = new Logger(BotController.name);
+// ─────────────────────────────────────────────────────────────
 
+@Controller('bot')
+export class BotController {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+
     @InjectRepository(Profile)
     private readonly profileRepo: Repository<Profile>,
-    @InjectRepository(SmartProfile)
-    private readonly smartProfileRepo: Repository<SmartProfile>,
-    private readonly matchingService: MatchingService,
-    private readonly aiContentService: AiContentService,
+
+    @InjectRepository(Event)
+    private readonly eventRepo: Repository<Event>,
   ) {}
 
-  /**
-   * ذخیره پروفایل از آنبوردینگ ربات
-   */
-  @Post('onboarding')
-  async onboarding(
-    @Body() payload: {
-      telegramId: string;
-      name: string;
-      city: string;
-      gender: string;
-      age: number;
-      personalityTraits: string[];
-      interests: string[];
-      preferredEventTypes?: string[];
-    },
-    @Headers('x-ravi-bot-secret') secret: string,
-  ) {
-    verifyBotSecret(secret);
+  // ═══════════════════════════════════════════════════════════
+  // 1) تولید deep link برای اتصال تلگرام
+  // GET /api/bot/generate-link-token
+  // ═══════════════════════════════════════════════════════════
 
-    // جستجوی کاربر با telegramId
-    let user = await this.userRepo.findOne({
-      where: { telegram_id: payload.telegramId },
-    });
-
-    if (!user) {
-      this.logger.log(`New bot user: ${payload.telegramId} - ${payload.name}`);
-      // کاربر جدید فقط با telegramId ثبت می‌شود
-      // بعداً با شماره تلفن ادغام می‌شود
-      user = this.userRepo.create({
-        telegram_id: payload.telegramId,
-        name: payload.name,
-      } as any);
-      await this.userRepo.save(user);
-    }
-
-    // به‌روزرسانی پروفایل
-    let profile = await this.profileRepo.findOne({ where: { user_id: user.id } });
-    if (!profile) {
-      profile = this.profileRepo.create({ user_id: user.id });
-    }
-
-    const nameParts = payload.name.split(' ');
-    profile.first_name = nameParts[0] || payload.name;
-    profile.last_name = nameParts.slice(1).join(' ') || null;
-    profile.city = payload.city;
-    profile.gender = payload.gender;
-    profile.age = payload.age;
-    profile.interests = payload.interests;
-    await this.profileRepo.save(profile);
-
-    // پروفایل هوشمند
-    let smartProfile = await this.smartProfileRepo.findOne({ where: { user_id: user.id } });
-    if (!smartProfile) {
-      smartProfile = this.smartProfileRepo.create({ user_id: user.id });
-    }
-
-    // استنتاج تیپ ارتباطی از شخصیت
-    const isExtrovert = payload.personalityTraits.includes('social');
-    smartProfile.extroversion_score = isExtrovert ? 75 : 35;
-    smartProfile.preferred_event_types = payload.preferredEventTypes || [];
-    smartProfile.extracted_interests = payload.interests;
-    await this.smartProfileRepo.save(smartProfile);
-
-    return { success: true, userId: user.id };
-  }
-
-  /**
-   * ورود به گروه تلگرام
-   */
-  @Post('group-join')
-  async groupJoin(
-    @Body() payload: {
-      telegramId: string;
-      groupId: string;
-      eventId: string;
-    },
-    @Headers('x-ravi-bot-secret') secret: string,
-  ) {
-    verifyBotSecret(secret);
+  @Get('generate-link-token')
+  @UseGuards(JwtAuthGuard)
+  async generateLinkToken(@Request() req): Promise<{
+    deepLink: string;
+    expiresInSeconds: number;
+    alreadyLinked: boolean;
+  }> {
+    const userId: string = req.user.id;
 
     const user = await this.userRepo.findOne({
-      where: { telegram_id: payload.telegramId },
+      where: { id: userId },
     });
 
     if (!user) {
-      return { canJoin: false, message: 'کاربر یافت نشد. لطفاً ابتدا ثبت‌نام کنید' };
+      throw new NotFoundException('کاربر یافت نشد');
     }
 
-    const smartProfile = await this.smartProfileRepo.findOne({
-      where: { user_id: user.id },
-    });
+    const botUsername = process.env.BOT_USERNAME || 'raaviplatformbot';
 
-    if (smartProfile?.is_suspended) {
+    // اگر قبلاً لینک شده
+    if (user.telegram_id) {
       return {
-        canJoin: false,
-        message: 'حساب شما موقتاً محدود شده است. لطفاً با پشتیبانی تماس بگیرید',
+        deepLink: `https://t.me/${botUsername}?start=already_linked`,
+        expiresInSeconds: 0,
+        alreadyLinked: true,
       };
     }
 
-    return { canJoin: true, userId: user.id, credits: 100 };
+    const token = crypto.randomBytes(9).toString('base64url');
+
+    const EXPIRES_MS = 10 * 60 * 1000;
+
+    linkTokenStore.set(token, {
+      userId,
+      expiresAt: Date.now() + EXPIRES_MS,
+    });
+
+    return {
+      deepLink: `https://t.me/${botUsername}?start=${token}`,
+      expiresInSeconds: EXPIRES_MS / 1000,
+      alreadyLinked: false,
+    };
   }
 
-  /**
-   * دریافت فیدبک از ربات
-   */
-  @Post('feedback')
-  async feedback(
-    @Body() payload: {
+  // ═══════════════════════════════════════════════════════════
+  // 2) تأیید توکن و لینک کردن تلگرام
+  // POST /api/bot/verify-link-token
+  // ═══════════════════════════════════════════════════════════
+
+  @Post('verify-link-token')
+  async verifyLinkToken(
+    @Body()
+    body: {
+      token: string;
       telegramId: string;
-      eventId: string;
-      score: number;
+      telegramUsername?: string;
     },
     @Headers('x-ravi-bot-secret') secret: string,
-  ) {
+  ): Promise<{
+    success: boolean;
+    message?: string;
+    user?: {
+      name: string;
+      city: string;
+      neighborhood: string;
+      interests: string[];
+      alreadyLinked: boolean;
+    };
+  }> {
+    verifyBotSecret(secret);
+
+    const { token, telegramId, telegramUsername } = body;
+
+    // حالت already_linked
+    if (token === 'already_linked') {
+      const user = await this.userRepo.findOne({
+        where: { telegram_id: telegramId },
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          message: 'حساب تلگرام لینک‌نشده‌ای یافت نشد.',
+        };
+      }
+
+      const profile = await this.profileRepo.findOne({
+        where: { user_id: user.id },
+      });
+
+      return {
+        success: true,
+        user: {
+          name: user.name || 'کاربر',
+          city: profile?.city || '',
+          neighborhood: profile?.neighborhood || '',
+          interests: profile?.interests || [],
+          alreadyLinked: true,
+        },
+      };
+    }
+
+    const tokenData = linkTokenStore.get(token);
+
+    if (!tokenData) {
+      return {
+        success: false,
+        message: 'لینک منقضی یا نامعتبر است. از داشبورد دوباره لینک بگیر.',
+      };
+    }
+
+    if (tokenData.expiresAt < Date.now()) {
+      linkTokenStore.delete(token);
+      return {
+        success: false,
+        message: 'لینک منقضی شده. از داشبورد دوباره لینک بگیر.',
+      };
+    }
+
+    const user = await this.userRepo.findOne({
+      where: { id: tokenData.userId },
+    });
+
+    if (!user) {
+      linkTokenStore.delete(token);
+      return {
+        success: false,
+        message: 'کاربر یافت نشد.',
+      };
+    }
+
+    // بررسی تداخل
+    const conflict = await this.userRepo.findOne({
+      where: { telegram_id: telegramId },
+    });
+
+    if (conflict && conflict.id !== user.id) {
+      return {
+        success: false,
+        message: 'این حساب تلگرام قبلاً به یک حساب دیگر وصل شده.',
+      };
+    }
+
+    user.telegram_id = telegramId;
+
+    if (telegramUsername) {
+      user.telegram_username = telegramUsername;
+    }
+
+    await this.userRepo.save(user);
+
+    linkTokenStore.delete(token);
+
+    const profile = await this.profileRepo.findOne({
+      where: { user_id: user.id },
+    });
+
+    return {
+      success: true,
+      user: {
+        name: user.name || 'کاربر',
+        city: profile?.city || '',
+        neighborhood: profile?.neighborhood || '',
+        interests: profile?.interests || [],
+        alreadyLinked: false,
+      },
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 3) رویدادهای هوشمند
+  // GET /api/bot/smart-events/:telegramId
+  // ═══════════════════════════════════════════════════════════
+
+  @Get('smart-events/:telegramId')
+  async smartEvents(
+    @Param('telegramId') telegramId: string,
+    @Headers('x-ravi-bot-secret') secret: string,
+  ): Promise<{
+    events: Array<{
+      id: string;
+      title: string;
+      city: string;
+      location: string;
+      start_date: string;
+      price: number;
+      event_type: string;
+      spotsLeft: number;
+      matchScore: number;
+    }>;
+    userName: string;
+    userCity: string;
+  }> {
     verifyBotSecret(secret);
 
     const user = await this.userRepo.findOne({
-      where: { telegram_id: payload.telegramId },
+      where: { telegram_id: telegramId },
     });
 
-    if (!user) return { success: false };
-
-    await this.matchingService.updateSmartProfileAfterEvent(
-      user.id,
-      payload.eventId,
-      true, // فرض می‌شود شرکت کرده چون فیدبک داده
-      payload.score * 20, // 1-5 → 20-100
-    );
-
-    this.logger.log(`Feedback received: user=${user.id} event=${payload.eventId} score=${payload.score}`);
-    return { success: true };
-  }
-
-  /**
-   * ثبت متادیتای تلگرام گروه (بدون خواندن محتوا)
-   */
-  @Post('group-metadata')
-  async groupMetadata(
-    @Body() payload: {
-      groupId: string;
-      eventId: string;
-      members: Array<{
-        telegramId: string;
-        messageCount: number;
-        responseTimeMinutes: number;
-      }>;
-    },
-    @Headers('x-ravi-bot-secret') secret: string,
-  ) {
-    verifyBotSecret(secret);
-
-    for (const member of payload.members) {
-      const user = await this.userRepo.findOne({
-        where: { telegram_id: member.telegramId },
-      });
-      if (!user) continue;
-
-      let smartProfile = await this.smartProfileRepo.findOne({
-        where: { user_id: user.id },
-      });
-      if (!smartProfile) {
-        smartProfile = this.smartProfileRepo.create({ user_id: user.id });
-      }
-
-      smartProfile.telegram_messages_sent =
-        (smartProfile.telegram_messages_sent || 0) + member.messageCount;
-      smartProfile.telegram_message_rate = member.messageCount;
-      smartProfile.telegram_response_time = member.responseTimeMinutes;
-
-      // به‌روزرسانی سطح انرژی
-      const energyAdjustment = member.messageCount > 20 ? 5 : member.messageCount < 3 ? -5 : 0;
-      smartProfile.energy_level = Math.max(0, Math.min(100,
-        (smartProfile.energy_level || 50) + energyAdjustment,
-      ));
-
-      await this.smartProfileRepo.save(smartProfile);
+    if (!user) {
+      return {
+        events: [],
+        userName: '',
+        userCity: '',
+      };
     }
 
-    return { success: true, processed: payload.members.length };
-  }
+    const profile = await this.profileRepo.findOne({
+      where: { user_id: user.id },
+    });
 
-  /**
-   * پاسخ به سوال پشتیبانی از ربات تلگرام
-   */
-  @Post('support/ask')
-  async supportAsk(
-    @Body() payload: { question: string; telegramId: string },
-    @Headers('x-ravi-bot-secret') secret: string,
-  ) {
-    verifyBotSecret(secret);
-    return this.aiContentService.answerSupportQuestion(payload.question);
-  }
+    const userCity = profile?.city || '';
+    const userInterests: string[] = profile?.interests || [];
 
-  /**
-   * بررسی وضعیت ربات
-   */
-  @Get('health')
-  async health() {
-    return { status: 'ok', service: 'ravi-bot-backend', timestamp: new Date() };
+    const qb = this.eventRepo
+      .createQueryBuilder('e')
+      .where('e.is_active = :active', {
+        active: true,
+      })
+      .andWhere('e.start_date > :now', {
+        now: new Date(),
+      });
+
+    if (userCity) {
+      qb.andWhere('e.city = :city', {
+        city: userCity,
+      });
+    }
+
+    const events = await qb.orderBy('e.start_date', 'ASC').take(10).getMany();
+
+    const scored = events.map((ev) => {
+      const evTags: string[] = (ev as any).tags || [];
+      const evType: string = (ev as any).event_type || '';
+
+      let score = 50;
+
+      const matched = userInterests.filter(
+        (i) =>
+          evTags.some((t) => t.toLowerCase().includes(i.toLowerCase())) ||
+          evType.toLowerCase().includes(i.toLowerCase()),
+      );
+
+      score += matched.length * 15;
+
+      if ((ev as any).city === userCity) {
+        score += 20;
+      }
+
+      score = Math.min(score, 98);
+
+      const capacity = Number((ev as any).capacity) || 10;
+
+      const booked = Number((ev as any).current_bookings) || 0;
+
+      const spotsLeft = Math.max(0, capacity - booked);
+
+      return {
+        id: ev.id,
+        title: ev.title,
+        city: (ev as any).city || '',
+        location: (ev as any).location || '',
+        start_date: ev.start_date ? new Date(ev.start_date).toISOString() : '',
+        price: Number((ev as any).price) || 0,
+        event_type: (ev as any).event_type || '',
+        spotsLeft,
+        matchScore: score,
+      };
+    });
+
+    scored.sort((a, b) => b.matchScore - a.matchScore);
+
+    return {
+      events: scored.slice(0, 5),
+      userName: user.name || 'کاربر',
+      userCity,
+    };
   }
 }

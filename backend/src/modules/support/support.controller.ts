@@ -8,7 +8,7 @@ import { SupportService } from './support.service';
 import { TicketCategory, TicketStatus } from './entities/support-ticket.entity';
 import { isAdminUser } from '../admin/admin.controller';
 
-@Controller('api/support')
+@Controller('support')
 export class SupportController {
   constructor(private readonly supportService: SupportService) {}
 

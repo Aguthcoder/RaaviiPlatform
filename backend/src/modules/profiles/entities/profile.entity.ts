@@ -53,6 +53,9 @@ export class Profile {
   @Column({ nullable: true })
   city: string;
 
+  @Column({ nullable: true })
+  neighborhood: string;
+
   // ── سن ──
   @Column({ type: 'int', nullable: true })
   age: number;
