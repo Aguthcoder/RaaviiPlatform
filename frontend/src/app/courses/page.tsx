@@ -5,7 +5,7 @@ const courses = [
     id: 1,
     title: "طراحی داخلی مدرن",
     image:
-      "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=500&auto=format&fit=crop&q=60",
+      "/images/raavi-placeholder-1.svg",
     time: "۱۲ ساعت",
     price: "۹۰۰,۰۰۰",
     students: 1200,
@@ -15,7 +15,7 @@ const courses = [
     id: 2,
     title: "یوگا و مدیتیشن در خانه",
     image:
-      "https://images.unsplash.com/photo-1544367563-12123d8965cd?w=500&auto=format&fit=crop&q=60",
+      "/images/raavi-placeholder-2.svg",
     time: "۸ ساعت",
     price: "۴۵۰,۰۰۰",
     students: 850,
@@ -25,7 +25,7 @@ const courses = [
     id: 3,
     title: "مدیریت استرس و ودا",
     image:
-      "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=500&auto=format&fit=crop&q=60",
+      "/images/raavi-placeholder-3.svg",
     time: "۵ ساعت",
     price: "۳۰۰,۰۰۰",
     students: 2000,

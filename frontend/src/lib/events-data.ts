@@ -35,11 +35,11 @@ export const EVENTS_DATA: EventData[] = [
     price: 450000,
     capacity: 25,
     image:
-      "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=1200&q=80",
+      "/images/raavi-placeholder-1.svg",
     instructor: {
       name: "سارا محمدی",
       avatar:
-        "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&q=80",
+        "/images/raavi-placeholder-2.svg",
       role: "روانشناس و مشاور ارتباطات",
     },
     learnings: [
@@ -83,11 +83,11 @@ export const EVENTS_DATA: EventData[] = [
     price: 350000,
     capacity: 30,
     image:
-      "https://images.unsplash.com/photo-1552664730-d307ca884978?w=1200&q=80",
+      "/images/raavi-placeholder-3.svg",
     instructor: {
       name: "دکتر امیر رضایی",
       avatar:
-        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&q=80",
+        "/images/raavi-placeholder-4.svg",
       role: "روانشناس بالینی و مدرس دانشگاه",
     },
     learnings: [
@@ -130,11 +130,11 @@ export const EVENTS_DATA: EventData[] = [
     price: 550000,
     capacity: 15,
     image:
-      "https://images.unsplash.com/photo-1551632811-561732d1e306?w=1200&q=80",
+      "/images/raavi-placeholder-5.svg",
     instructor: {
       name: "کاوه احمدی",
       avatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80",
+        "/images/raavi-placeholder-6.svg",
       role: "کوهنورد حرفه‌ای و راهنمای کوه",
     },
     learnings: [
@@ -177,11 +177,11 @@ export const EVENTS_DATA: EventData[] = [
     price: 250000,
     capacity: 20,
     image:
-      "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=1200&q=80",
+      "/images/raavi-placeholder-1.svg",
     instructor: {
       name: "مریم کریمی",
       avatar:
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&q=80",
+        "/images/raavi-placeholder-2.svg",
       role: "نویسنده و منتقد ادبی",
     },
     learnings: [
@@ -224,11 +224,11 @@ export const EVENTS_DATA: EventData[] = [
     price: 500000,
     capacity: 40,
     image:
-      "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200&q=80",
+      "/images/raavi-placeholder-3.svg",
     instructor: {
       name: "علی نوروزی",
       avatar:
-        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&q=80",
+        "/images/raavi-placeholder-4.svg",
       role: "بنیانگذار استارتاپ و مشاور کسب‌وکار",
     },
     learnings: [
@@ -271,11 +271,11 @@ export const EVENTS_DATA: EventData[] = [
     price: 400000,
     capacity: 12,
     image:
-      "https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=1200&q=80",
+      "/images/raavi-placeholder-5.svg",
     instructor: {
       name: "شهرزاد حسینی",
       avatar:
-        "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&q=80",
+        "/images/raavi-placeholder-6.svg",
       role: "سرآشپز و مدرس آشپزی",
     },
     learnings: [

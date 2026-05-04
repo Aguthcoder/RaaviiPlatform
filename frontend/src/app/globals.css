@@ -461,7 +461,7 @@ input:focus,button:focus,select:focus,textarea:focus { outline:2px solid #f97316
   font-weight: 400;
 }
 
-/* ✅ بک‌گراند سفید - اضافه شده توسط apply-changes.sh */
+/* بک‌گراند پیش‌فرض سفید برای صفحات عمومی */
 html, body {
-  background-color: #ffffff !important;
+  background-color: #ffffff;
 }

@@ -6,6 +6,7 @@ import { Event } from '../events/entities/event.entity';
 import { Booking } from '../bookings/entities/booking.entity';
 import { Profile } from '../profiles/entities/profile.entity';
 import { Payment } from '../payments/entities/payment.entity';
+import { TestResult } from '../test-results/entities/test-result.entity';
 
 @Module({
   imports: [

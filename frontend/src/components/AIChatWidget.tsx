@@ -6,7 +6,7 @@ import { useApp } from "@/context/AppContext";
 
 const AI_BASE = "https://api.gapgpt.app/v1";
 const API_KEY = "sk-fRQfQLXc8pkuNIIf6eSokMD2KU1BdsLUXXj4gtv4yQLrIlxQ";
-const AI_MODEL = "claude-opus-4-6";
+const AI_MODEL = "claude-haiku-4-5-20251001";
 
 interface Message {
   role: "user" | "assistant";

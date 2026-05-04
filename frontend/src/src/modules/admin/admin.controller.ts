@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { TestResult } from '../test-results/entities/test-result.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { User } from '../users/entities/user.entity';
 import { Event } from '../events/entities/event.entity';
@@ -24,7 +25,7 @@ export function isAdminUser(user: any): boolean {
   if (!user) return false;
   const raw = user?.mobileNumber || user?.phone_number || '';
   const phone = raw.replace(/[\s\-+]/g, '').replace(/^98/, '0');
-  return ADMIN_PHONES.includes(phone);
+  return user.role === 'admin' || user.role === 'super_admin' || ADMIN_PHONES.includes(phone);
 }
 
 function requireAdmin(user: any) {
@@ -40,6 +41,7 @@ export class AdminController {
     @InjectRepository(Booking) private bookingsRepo: Repository<Booking>,
     @InjectRepository(Profile) private profilesRepo: Repository<Profile>,
     @InjectRepository(Payment) private paymentsRepo: Repository<Payment>,
+    @InjectRepository(TestResult) private testResultsRepo: Repository<TestResult>,
   ) {}
 
   // ── آمار ادمین ─────────────────────────────────────────────────
@@ -224,6 +226,10 @@ export class AdminController {
           const profile = await this.profilesRepo.findOne({ where: { user_id: u.id } }).catch(() => null);
           const userCity = profile?.city || '';
           const bookingCount = await this.bookingsRepo.count({ where: { user_id: u.id } }).catch(() => 0);
+          const latestTestResult = await this.testResultsRepo.findOne({
+            where: { user_id: u.id },
+            order: { completed_at: 'DESC' },
+          }).catch(() => null);
           return {
             id: u.id,
             name: u.name || '',
@@ -233,6 +239,13 @@ export class AdminController {
             isTestTaken: u.isTestTaken,
             createdAt: u.createdAt,
             bookingCount,
+            latestTestResult: latestTestResult ? {
+              id: latestTestResult.id,
+              test_name: latestTestResult.test_name,
+              main_result: latestTestResult.main_result,
+              scores: latestTestResult.scores,
+              completed_at: latestTestResult.completed_at,
+            } : null,
           };
         }),
       );
@@ -243,6 +256,31 @@ export class AdminController {
       console.error('Admin users error:', err);
       return { users: [], total: 0 };
     }
+  }
+
+  // ── تغییر نقش کاربر ───────────────────────────────────────────
+  @Patch('users/:id/role')
+  async updateUserRole(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { role?: 'user' | 'admin' },
+  ) {
+    requireAdmin(req.user);
+    if (!['user', 'admin'].includes(body.role || '')) {
+      throw new ForbiddenException('نقش نامعتبر است');
+    }
+    const user = await this.usersRepo.findOne({ where: { id } });
+    if (!user) throw new ForbiddenException('کاربر یافت نشد');
+    user.role = body.role!;
+    const saved = await this.usersRepo.save(user);
+    return {
+      id: saved.id,
+      name: saved.name || '',
+      mobileNumber: saved.mobileNumber,
+      role: saved.role,
+      isTestTaken: saved.isTestTaken,
+      createdAt: saved.createdAt,
+    };
   }
 
   // ── پروفایل کاربر برای ادمین ───────────────────────────────────

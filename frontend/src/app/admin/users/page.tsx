@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { fetchAllUsers, isAdminPhone, AdminUser } from "@/lib/api";
+import { fetchAllUsers, isAdminPhone, AdminUser, updateAdminUserRole } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import {
   Users, Search, MapPin, Phone, Filter, UserX,
@@ -39,6 +39,7 @@ export default function AdminUsersPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("all");
   const [unsuspending, setUnsuspending] = useState<string | null>(null);
   const [suspending, setSuspending] = useState<string | null>(null);
+  const [roleUpdating, setRoleUpdating] = useState<string | null>(null);
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const headers = {
@@ -98,6 +99,15 @@ export default function AdminUsersPage() {
       setTotal((t) => Math.max(0, t - 1));
     } catch {}
     setUnsuspending(null);
+  }
+
+  async function changeRole(userId: string, role: "user" | "admin") {
+    setRoleUpdating(userId);
+    try {
+      const updated = await updateAdminUserRole(userId, role);
+      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role: updated.role } : u));
+    } catch {}
+    setRoleUpdating(null);
   }
 
   async function suspendUser(userId: string) {
@@ -290,6 +300,11 @@ export default function AdminUsersPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="font-black text-white text-sm">{u.name || "بدون نام"}</p>
+                  {u.role === "admin" && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      ادمین
+                    </span>
+                  )}
                   {u.is_suspended && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
                       ساسپند
@@ -305,6 +320,11 @@ export default function AdminUsersPage() {
                       <MapPin size={10} className="text-orange-400" />{u.city}
                     </span>
                   )}
+                  {u.latestTestResult && (
+                    <span className="text-[11px] flex items-center gap-1 text-emerald-300">
+                      نتیجه تست: {u.latestTestResult.main_result}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
@@ -316,6 +336,14 @@ export default function AdminUsersPage() {
                     {u.bookingCount} رزرو
                   </span>
                 )}
+                <button
+                  onClick={() => changeRole(u.id, u.role === "admin" ? "user" : "admin")}
+                  disabled={roleUpdating === u.id}
+                  className="text-[10px] px-2 py-1 rounded-xl font-bold text-white disabled:opacity-50"
+                  style={{ background: u.role === "admin" ? "rgba(239,68,68,0.25)" : "rgba(99,102,241,0.25)", border: "1px solid rgba(255,255,255,0.12)" }}
+                >
+                  {roleUpdating === u.id ? "..." : u.role === "admin" ? "حذف ادمین" : "ادمین کن"}
+                </button>
                 {u.createdAt && (
                   <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
                     {new Date(u.createdAt).toLocaleDateString("fa-IR")}

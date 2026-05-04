@@ -248,6 +248,8 @@ export default function AdminDashboardPage() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [myEvents, setMyEvents] = useState<ApiEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [successInfoModal, setSuccessInfoModal] = useState(false);
+  const [chartInfoModal, setChartInfoModal] = useState<{ title: string; content: string } | null>(null);
 
   useEffect(() => {
     if (!isAdminPhone(state.user?.mobileNumber)) {
@@ -307,7 +309,44 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="max-w-3xl mx-auto pb-24 space-y-5" dir="rtl">
-      {/* Header */}
+      {/* مودال معیارهای موفقیت */}
+      {successInfoModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }} onClick={() => setSuccessInfoModal(false)}>
+          <div className="w-full max-w-md rounded-3xl p-6 shadow-2xl" style={{ background: "linear-gradient(145deg,#1B2A4A,#0d1e35)", border: "1px solid rgba(255,255,255,0.1)" }} onClick={e => e.stopPropagation()}>
+            <h3 className="text-white font-black text-lg mb-4">معیارهای موفقیت رویداد</h3>
+            <div className="space-y-3 text-sm">
+              <div className="rounded-2xl p-3" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)" }}>
+                <p className="text-green-400 font-bold mb-1">✅ حضور کاربران</p>
+                <p className="text-slate-300">حضور بیش از ۸۰٪ ظرفیت در رویداد نشان‌دهنده موفقیت است.</p>
+              </div>
+              <div className="rounded-2xl p-3" style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.2)" }}>
+                <p className="text-orange-400 font-bold mb-1">⭐ رتینگ شرکت‌کنندگان</p>
+                <p className="text-slate-300">میانگین امتیاز بالاتر از ۴ از ۵ به عنوان رویداد موفق شناخته می‌شود.</p>
+              </div>
+              <div className="rounded-2xl p-3" style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)" }}>
+                <p className="text-indigo-400 font-bold mb-1">🔁 نرخ بازگشت</p>
+                <p className="text-slate-300">اگر بیش از ۵۰٪ شرکت‌کنندگان در رویداد بعدی نیز شرکت کنند، رویداد موفق بوده است.</p>
+              </div>
+              <div className="rounded-2xl p-3" style={{ background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.2)" }}>
+                <p className="text-yellow-400 font-bold mb-1">💬 تکمیل پروفایل</p>
+                <p className="text-slate-300">افزایش نرخ تکمیل پروفایل کاربران پس از رویداد نشانه تجربه مثبت است.</p>
+              </div>
+            </div>
+            <button onClick={() => setSuccessInfoModal(false)} className="mt-5 w-full py-3 rounded-2xl text-sm font-black text-white" style={{ background: "linear-gradient(135deg,#FF6B00,#FF9A3C)" }}>بستن</button>
+          </div>
+        </div>
+      )}
+
+      {/* مودال توضیح نمودارها */}
+      {chartInfoModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }} onClick={() => setChartInfoModal(null)}>
+          <div className="w-full max-w-md rounded-3xl p-6 shadow-2xl" style={{ background: "linear-gradient(145deg,#1B2A4A,#0d1e35)", border: "1px solid rgba(255,255,255,0.1)" }} onClick={e => e.stopPropagation()}>
+            <h3 className="text-white font-black text-lg mb-3">{chartInfoModal.title}</h3>
+            <p className="text-slate-300 text-sm leading-relaxed">{chartInfoModal.content}</p>
+            <button onClick={() => setChartInfoModal(null)} className="mt-5 w-full py-3 rounded-2xl text-sm font-black text-white" style={{ background: "linear-gradient(135deg,#FF6B00,#FF9A3C)" }}>بستن</button>
+          </div>
+        </div>
+      )}
       <div className="rounded-3xl p-6" style={CARD}>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
@@ -482,6 +521,16 @@ export default function AdminDashboardPage() {
               <BarChart2 size={15} className="text-orange-400" />
             </div>
             <h3 className="font-black text-white text-sm">رزروهای ماهانه</h3>
+            <button
+              onClick={() => {
+                const totalB = analytics?.totalBookings || 0;
+                const peakM = bookingMonths.length ? bookingMonths.reduce((a:any,b:any)=>a.value>b.value?a:b,{label:"",value:0}) : null;
+                setChartInfoModal({ title: "رزروهای ماهانه", content: `این نمودار تعداد رزروهای انجام‌شده در هر ماه را نشان می‌دهد.\n\n📊 آمار جاری:\n• مجموع کل رزروها: ${totalB.toLocaleString()} رزرو${peakM?.label ? "\n• پرترافیک‌ترین ماه: " + peakM.label + " با " + peakM.value + " رزرو" : ""}\n\nماه‌هایی که تعداد رزرو بیشتری دارند نشان‌دهنده افزایش استقبال کاربران هستند. کاهش ناگهانی ممکن است نشان‌دهنده مشکل فنی یا کاهش رضایت کاربران باشد.` });
+              }}
+              className="mr-auto text-xs text-slate-500 hover:text-slate-300 border border-slate-700 rounded-lg px-2 py-0.5 transition-all hover:border-slate-500"
+            >
+              توضیح
+            </button>
           </div>
           <BarChartSVG
             data={
@@ -508,6 +557,16 @@ export default function AdminDashboardPage() {
             <h3 className="font-black text-white text-sm">
               توزیع دسته‌بندی‌ها
             </h3>
+            <button
+              onClick={() => {
+                const topCat = catData.length ? catData.reduce((a:any,b:any)=>a.value>b.value?a:b,{label:"",value:0}) : null;
+                const total = catData.reduce((s:number,c:any)=>s+c.value,0)||1;
+                setChartInfoModal({ title: "توزیع دسته‌بندی‌ها", content: `این نمودار نشان می‌دهد کاربران بیشتر در کدام دسته‌بندی‌های همنشینی شرکت می‌کنند.${topCat?.label ? "\n\n📊 آمار جاری:\n• محبوب‌ترین دسته: " + topCat.label + " با " + topCat.value + " رویداد (" + Math.round(topCat.value/total*100) + "٪ از کل)\n• تعداد دسته‌بندی‌های فعال: " + catData.length : ""}\n\nاز این داده برای اولویت‌بندی سرمایه‌گذاری در رویدادها و بازاریابی هدفمند استفاده کنید.` });
+              }}
+              className="mr-auto text-xs text-slate-500 hover:text-slate-300 border border-slate-700 rounded-lg px-2 py-0.5 transition-all hover:border-slate-500"
+            >
+              توضیح
+            </button>
           </div>
           <DonutChart
             data={
@@ -535,9 +594,21 @@ export default function AdminDashboardPage() {
               </div>
               <h3 className="font-black text-white text-sm">روند درآمد</h3>
             </div>
-            <span className="text-green-400 text-xs font-bold flex items-center gap-1">
-              <ArrowUpRight size={13} /> در حال رشد
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-green-400 text-xs font-bold flex items-center gap-1">
+                <ArrowUpRight size={13} /> در حال رشد
+              </span>
+              <button
+                onClick={() => {
+                  const maxRev = revenueSparkline.length ? Math.max(...revenueSparkline) : 0;
+                  const totalRev = revenueSparkline.reduce((a:number,b:number)=>a+b,0);
+                  setChartInfoModal({ title: "روند درآمد", content: `این نمودار روند درآمد پلتفرم در طول زمان را نشان می‌دهد.\n\n💰 آمار جاری:\n• مجموع درآمد کل: ${totalRev.toLocaleString()} تومان\n• بیشترین درآمد ماهانه: ${maxRev.toLocaleString()} تومان\n\nافزایش درآمد نشان‌دهنده رشد تعداد رزروها است. نقاط پایین ممکن است نشان‌دهنده دوره‌های تعطیلات باشد.` });
+                }}
+                className="text-xs text-slate-500 hover:text-slate-300 border border-slate-700 rounded-lg px-2 py-0.5 transition-all hover:border-slate-500"
+              >
+                توضیح
+              </button>
+            </div>
           </div>
           <Sparkline data={revenueSparkline} color="#10B981" />
         </div>
@@ -550,6 +621,12 @@ export default function AdminDashboardPage() {
             <TrendingUp size={15} className="text-orange-400" />
           </div>
           <h3 className="font-black text-white">درصد موفقیت رویدادها</h3>
+          <button
+            onClick={() => setSuccessInfoModal(true)}
+            className="mr-auto text-xs text-slate-400 hover:text-white border border-slate-600 rounded-lg px-2 py-1 transition-all hover:border-orange-500"
+          >
+            معیارهای موفقیت ↗
+          </button>
         </div>
         <SuccessChart events={stats?.events || []} />
       </div>

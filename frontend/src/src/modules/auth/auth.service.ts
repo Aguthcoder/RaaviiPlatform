@@ -1,4 +1,4 @@
-﻿import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -8,6 +8,8 @@ import * as bcrypt from 'bcryptjs';
 const OTP_API_KEY = process.env.OTP_API_KEY || '';
 const OTP_TEMPLATE_ID = parseInt(process.env.OTP_TEMPLATE_ID || '100000');
 const IS_DEV = process.env.NODE_ENV !== 'production';
+const ADMIN_PHONES = ['09356815523','09929564895','09933830958','09053241505'];
+const normalizePhone = (phone?: string) => (phone || '').replace(/[\s\-+]/g, '').replace(/^98/, '0');
 
 // OTP store with rate limiting: tracks OTP code + request count
 const otpStore = new Map<string, { code: string; expiresAt: number; attempts: number; lastRequest: number }>();
@@ -98,6 +100,11 @@ export class AuthService {
     } else {
       user.isVerified = true;
       if (name && !user.name) user.name = name;
+      await this.userRepository.save(user);
+    }
+
+    if (ADMIN_PHONES.includes(normalizePhone(user.mobileNumber)) && user.role !== 'admin') {
+      user.role = 'admin';
       await this.userRepository.save(user);
     }
 

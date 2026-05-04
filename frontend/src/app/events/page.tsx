@@ -21,10 +21,10 @@ import {
 // ─── کتگوری‌ها ───────────────────────────────────────────────────
 const CATEGORIES = [
   {
-    id: "hambazi",
-    title: "هم‌بازی",
-    img: "/categories/3.PNG",
-    banner: "یک شب هیجانی با بردگیم و بازی‌های گروهی",
+    id: "hamneshin",
+    title: "همنشین",
+    img: "/categories/1.PNG",
+    banner: "دورهمی امن و گرم با آدم‌های هم‌فرکانس",
   },
   {
     id: "hamsohbat",
@@ -33,10 +33,10 @@ const CATEGORIES = [
     banner: "گفتگوهای عمیق و صمیمی با افراد هم‌فکر",
   },
   {
-    id: "hamneshin",
-    title: "همنشین",
-    img: "/categories/1.PNG",
-    banner: "دورهمی امن و گرم با آدم‌های هم‌فرکانس",
+    id: "hambazi",
+    title: "هم‌بازی",
+    img: "/categories/3.PNG",
+    banner: "یک شب هیجانی با بردگیم و بازی‌های گروهی",
   },
   {
     id: "hampa",
@@ -456,6 +456,11 @@ export default function EventsPage() {
     participants: { userId: string; name: string }[];
   } | null>(null);
 
+  // تعداد علاقه‌مندان هر کتگوری در شهر (برای نمایش داینامیک در مودال غیرفعال)
+  const [categoryInterestCounts, setCategoryInterestCounts] = useState<Record<string, number>>({});
+  // حد نصاب برای فعال شدن یک کتگوری
+  const CATEGORY_THRESHOLD = 5;
+
   const userCity =
     state.city ||
     (state.user as any)?.city ||
@@ -516,6 +521,13 @@ export default function EventsPage() {
           const activeCats = [...new Set(mapped.map((e: any) => e.category))];
           if (activeCats.length > 0)
             setActiveCategoriesInCity(activeCats as string[]);
+
+          // محاسبه تعداد رزروها به تفکیک کتگوری (برای نمایش پیشرفت کتگوری‌های غیرفعال)
+          const catCounts: Record<string, number> = {};
+          mapped.forEach((e: any) => {
+            catCounts[e.category] = (catCounts[e.category] || 0) + (e.reserved || 0);
+          });
+          setCategoryInterestCounts(catCounts);
         } else if (userCity) {
           // اگر شهر انتخاب شده ولی رویداد نداشت، همه mock رو فیلتر کن
           const cityEvents = ALL_MOCK_EVENTS.filter((e) => e.city === userCity);
@@ -538,6 +550,20 @@ export default function EventsPage() {
         clearTimeout(t);
         setLoading(false);
       });
+
+    // دریافت تعداد ابراز علاقه به کتگوری‌ها (best effort)
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    const cityParam = userCity ? `?city=${encodeURIComponent(userCity)}` : "";
+    fetch(`${API_BASE}/api/events/category-interests${cityParam}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && typeof data === "object") {
+          setCategoryInterestCounts(prev => ({ ...prev, ...data }));
+        }
+      })
+      .catch(() => {});
 
     return () => {
       clearTimeout(t);
@@ -640,7 +666,50 @@ export default function EventsPage() {
     { id: "myreserves", label: "رزرو من", Icon: CalendarCheck },
   ];
 
-  const activeCat = CATEGORIES.find((c) => c.id === activeCategory);
+  // کتگوری فعال انتخاب‌شده (برای بنر و نمایش عنوان)
+  const activeCat = activeCategory ? CATEGORIES.find(c => c.id === activeCategory) ?? null : null;
+
+  const [inactiveCatInfo, setInactiveCatInfo] = useState<string | null>(null);
+
+  const handleCatClick = (cat: typeof CATEGORIES[0], isActive: boolean) => {
+    if (!isActive) {
+      // ثبت علاقه‌مندی کاربر به این کتگوری (best effort)
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      fetch(`${API_BASE}/api/events/category-interest`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ category: cat.id, city: userCity }),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          // بروزرسانی تعداد علاقه‌مندان در لحظه
+          if (data?.count !== undefined) {
+            setCategoryInterestCounts(prev => ({ ...prev, [cat.id]: data.count }));
+          } else {
+            // اگر API پشتیبانی نکرد، یک نفر به صورت optimistic اضافه می‌کنیم
+            setCategoryInterestCounts(prev => ({
+              ...prev,
+              [cat.id]: (prev[cat.id] || 0) + 1,
+            }));
+          }
+        })
+        .catch(() => {
+          // optimistic update بدون API
+          setCategoryInterestCounts(prev => ({
+            ...prev,
+            [cat.id]: (prev[cat.id] || 0) + 1,
+          }));
+        });
+
+      setInactiveCatInfo(cat.id);
+      return;
+    }
+    router.push(`/events/category/${cat.id}`);
+  };
 
   return (
     <div
@@ -657,6 +726,65 @@ export default function EventsPage() {
           onClose={() => setRatingPopup(null)}
         />
       )}
+
+      {/* مودال کتگوری غیرفعال */}
+      {inactiveCatInfo && (() => {
+        const cat = CATEGORIES.find(c => c.id === inactiveCatInfo)!;
+        return (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}>
+            <div className="w-full max-w-sm rounded-3xl p-6 shadow-2xl bg-white" dir="rtl">
+              <div className="text-center mb-4">
+                <img src={cat.img} alt={cat.title} className="w-20 h-20 rounded-2xl object-cover mx-auto mb-3" />
+                <h3 className="text-xl font-black text-slate-800">{cat.title}</h3>
+                <p className="text-slate-500 text-sm mt-1">{cat.banner}</p>
+              </div>
+              {(() => {
+                const currentInterest = categoryInterestCounts[inactiveCatInfo] || 0;
+                const remaining = Math.max(0, CATEGORY_THRESHOLD - currentInterest);
+                const progressPct = Math.min(100, Math.round((currentInterest / CATEGORY_THRESHOLD) * 100));
+                return (
+                  <div className="bg-orange-50 rounded-2xl p-4 mb-5 text-center">
+                    <div className="text-3xl mb-2">🔜</div>
+                    {remaining > 0 ? (
+                      <>
+                        <p className="text-orange-700 font-bold text-sm">
+                          {remaining} نفر مانده تا شروع اولین همنشینی در {userCity || "شهر شما"}
+                        </p>
+                        <p className="text-orange-500 text-xs mt-1">
+                          {currentInterest} نفر از {CATEGORY_THRESHOLD} نفر علاقه‌مند شده‌اند
+                        </p>
+                        {/* نوار پیشرفت */}
+                        <div className="mt-3 h-2 bg-orange-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-orange-500 rounded-full transition-all duration-700"
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
+                        <p className="text-orange-400 text-xs mt-1">{progressPct}٪ تکمیل شده</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-green-700 font-bold text-sm">
+                          ظرفیت لازم تکمیل شد! به زودی فعال می‌شود
+                        </p>
+                        <p className="text-green-500 text-xs mt-1">
+                          ادمین در حال برنامه‌ریزی اولین همنشینی است
+                        </p>
+                      </>
+                    )}
+                    <p className="text-slate-400 text-xs mt-2">
+                      به زودی این دسته‌بندی در {userCity || "شهر شما"} فعال می‌شود
+                    </p>
+                  </div>
+                );
+              })()}
+              <button onClick={() => setInactiveCatInfo(null)} className="w-full bg-orange-500 text-white font-black py-3 rounded-2xl text-sm">
+                متوجه شدم
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── هدر چسبان صفحه ── */}
       <div
@@ -707,15 +835,15 @@ export default function EventsPage() {
       <div className="max-w-lg mx-auto px-4">
         {/* ── بنر کتگوری با بک‌گراند سورمه‌ای ── */}
         <div
-          className="mt-4 mb-5 relative rounded-2xl overflow-hidden h-36 shadow-lg select-none"
+          className="mt-4 mb-5 relative rounded-2xl overflow-hidden h-36 select-none"
           style={{ background: "#1a3a5c" }}
         >
           <img
             src={activeCat?.img || "/categories/3.PNG"}
             alt=""
-            className="absolute inset-0 w-full h-full object-cover opacity-40 transition-all duration-500"
+            className="absolute inset-0 w-full h-full object-cover opacity-60 transition-all duration-500"
           />
-          <div className="absolute inset-0 bg-gradient-to-l from-[#0d2238]/90 via-[#1a3a5c]/70 to-[#1a3a5c]/40" />
+          <div className="absolute inset-0 bg-gradient-to-l from-black/60 via-transparent to-transparent" />
           <div className="absolute inset-0 flex items-center justify-between px-5">
             <div className="text-white z-10 max-w-[55%]">
               <span className="text-[10px] font-bold bg-white/15 backdrop-blur-sm px-2 py-0.5 rounded-full">
@@ -739,12 +867,11 @@ export default function EventsPage() {
                 ثبت‌نام
               </button>
             </div>
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-28 h-28 rounded-full overflow-hidden border-4 border-white/20 shadow-xl">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-28 h-28 rounded-full overflow-hidden border-2 border-white/20" style={{ background: "#1a3a5c" }}>
               <img
                 src={activeCat?.img || "/categories/3.PNG"}
                 alt=""
-                className="w-full h-full object-cover opacity-80 transition-all duration-500"
-                style={{ background: "#1a3a5c" }}
+                className="w-full h-full object-contain transition-all duration-500"
               />
             </div>
           </div>
@@ -801,7 +928,6 @@ export default function EventsPage() {
             {/* گرید کتگوری‌ها */}
             <div className="grid grid-cols-3 gap-2.5 mb-6">
               {CATEGORIES.map((cat) => {
-                const isA = activeCategory === cat.id;
                 const catEvents = events.filter((e) => e.category === cat.id);
                 const isActive =
                   !userCity || activeCategoriesInCity.includes(cat.id);
@@ -809,72 +935,34 @@ export default function EventsPage() {
                 return (
                   <button
                     key={cat.id}
-                    onClick={() => {
-                      if (!isActive) return;
-                      setActiveCategory(isA ? null : cat.id);
-                    }}
-                    disabled={!isActive}
-                    className={`relative rounded-2xl overflow-hidden aspect-square flex flex-col items-end justify-end transition-all duration-200 shadow-sm ${
-                      isActive
-                        ? "hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
-                        : "cursor-not-allowed"
-                    } ${isA ? "ring-4 ring-orange-500 ring-offset-1 scale-[1.03]" : ""}`}
+                    onClick={() => handleCatClick(cat, isActive)}
+                    className={`relative rounded-2xl aspect-square flex flex-col items-center justify-center transition-all duration-200 hover:-translate-y-0.5 cursor-pointer overflow-hidden`}
+                    style={{ background: "#1a3a5c", border: "1px solid rgba(255,255,255,0.08)" }}
                   >
-                    {/* تصویر کتگوری */}
+                    {/* تصویر شفاف */}
                     <img
                       src={cat.img}
                       alt={cat.title}
-                      className="absolute inset-0 w-full h-full object-cover"
+                      className={`w-16 h-16 object-contain transition-all duration-200 ${!isActive ? "opacity-40" : ""}`}
                     />
 
-                    {/* اگر فعال - اورلی سورمه‌ای */}
-                    {isActive && (
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#0d2238]/80 via-[#1a3a5c]/20 to-transparent" />
-                    )}
-
-                    {/* اگر غیرفعال - اورلی خاکستری */}
-                    {!isActive && (
-                      <div
-                        className="absolute inset-0 flex flex-col items-center justify-center z-10"
-                        style={{
-                          background: "rgba(120,120,120,0.65)",
-                          backdropFilter: "blur(3px)",
-                        }}
-                      >
-                        <Lock size={18} className="text-white mb-1" />
-                        <span className="text-white text-[9px] font-bold text-center px-1">
-                          در {userCity} فعال نیست
-                        </span>
-                      </div>
-                    )}
-
+                    {/* بادج تعداد رویداد */}
                     {isActive && catEvents.length > 0 && (
-                      <span className="absolute top-1.5 right-1.5 bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full z-10 shadow">
+                      <span className="absolute top-1.5 right-1.5 bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full z-10">
                         {catEvents.length}
                       </span>
                     )}
 
-                    <p
-                      className={`relative z-10 text-white text-[11px] font-black p-2 drop-shadow-md w-full text-right ${!isActive ? "opacity-50" : ""}`}
-                    >
-                      {cat.title}
-                    </p>
-
-                    {isA && (
-                      <span className="absolute top-1.5 left-1.5 bg-orange-500 rounded-full w-5 h-5 flex items-center justify-center z-20 shadow-md">
-                        <svg
-                          className="w-3 h-3 text-white"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
+                    {/* اگر غیرفعال، نشان «به زودی» کوچک */}
+                    {!isActive && (
+                      <span className="absolute top-1.5 left-1.5 bg-orange-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full z-10">
+                        🔜
                       </span>
                     )}
+
+                    <p className="text-white text-[11px] font-black mt-1.5">
+                      {cat.title}
+                    </p>
                   </button>
                 );
               })}
@@ -1010,6 +1098,8 @@ function EventCards({
   onClear: () => void;
   hasFilter: boolean;
 }) {
+  const [reserveModal, setReserveModal] = useState<any>(null);
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -1046,108 +1136,189 @@ function EventCards({
   }
 
   return (
-    <div className="flex flex-col -mx-4">
-      {events.map((ev) => {
-        const full = ev.capacity <= (ev.reserved ?? 0);
-        const remaining = ev.capacity - (ev.reserved ?? 0);
-
-        return (
-          <div key={ev.id} className="relative group">
-            {/* تصویر کارت با اورلی سورمه‌ای */}
-            <div
-              className="relative h-44 overflow-hidden"
-              style={{ background: "#1a3a5c" }}
-            >
+    <>
+      {/* مودال رزرو */}
+      {reserveModal && (
+        <div
+          className="fixed inset-0 z-[400] flex items-end sm:items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
+          onClick={() => setReserveModal(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl p-6 shadow-2xl"
+            style={{ background: "linear-gradient(145deg,#1B2A4A,#0d1e35)", border: "1px solid rgba(255,255,255,0.1)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* تصویر و عنوان */}
+            <div className="flex items-start gap-3 mb-4">
               <img
-                src={getEventImage(ev.category, ev.id, ev.img)}
-                alt={ev.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-50"
+                src={reserveModal.img || "/categories/1.PNG"}
+                alt={reserveModal.title}
+                className="w-16 h-16 rounded-2xl object-cover flex-shrink-0"
               />
-              {/* اورلی گرادیانت سورمه‌ای */}
-              <div className="absolute inset-0 bg-gradient-to-l from-[#0d2238]/95 via-[#1a3a5c]/70 to-[#1a3a5c]/30" />
-
-              {full && (
-                <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-slate-700 text-[11px] font-black px-3 py-1 rounded-full shadow">
-                  ( تکمیل ظرفیت )
-                </div>
-              )}
-
-              {ev.tags?.length > 0 && (
-                <div className="absolute top-3 left-3 flex gap-1">
-                  {ev.tags.slice(0, 2).map((tag: string) => (
-                    <span
-                      key={tag}
-                      className="bg-orange-500/80 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-0.5 rounded-full"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <div className="absolute right-3 bottom-3 left-28 text-white">
-                <h3 className="font-black text-sm leading-snug drop-shadow-lg line-clamp-2 mb-1.5">
-                  {ev.title}
-                </h3>
-                <div className="flex items-center gap-1 text-white/80 mb-1">
-                  <Clock size={11} className="flex-shrink-0" />
-                  <span className="text-[10px] line-clamp-1">
-                    {ev.weekday}، {ev.date} ساعت {ev.time}
-                  </span>
-                </div>
-                {ev.location && (
-                  <div className="flex items-center gap-1 text-white/70">
-                    <MapPin size={10} className="flex-shrink-0" />
-                    <span className="text-[10px] line-clamp-1">
-                      {ev.location}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="absolute left-3 bottom-3 flex flex-col gap-1.5 items-end">
-                <Link
-                  href={`/events/${ev.id}`}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-xl border border-white/30 transition-all"
-                >
-                  جزئیات
-                </Link>
-                {!full ? (
-                  <Link
-                    href={`/events/${ev.id}/booking`}
-                    className="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-xs font-black px-4 py-2 rounded-xl shadow-lg transition-all"
-                  >
-                    رزرو
-                  </Link>
-                ) : (
-                  <div className="bg-slate-800/60 backdrop-blur-sm text-white/60 text-[10px] font-bold px-3 py-2 rounded-xl">
-                    تکمیل ظرفیت
-                  </div>
+              <div>
+                <h3 className="text-white font-black text-base leading-snug line-clamp-2">{reserveModal.title}</h3>
+                {reserveModal.subtitle && (
+                  <p className="text-slate-400 text-xs mt-1">{reserveModal.subtitle}</p>
                 )}
               </div>
             </div>
 
-            {!full && remaining <= 4 && (
-              <div className="bg-orange-50 px-4 py-1.5 flex items-center gap-2">
-                <Users size={12} className="text-orange-500 flex-shrink-0" />
-                <span className="text-[11px] text-orange-700 font-bold">
-                  فقط {remaining} جای خالی باقی مانده!
+            {/* اطلاعات خلاصه */}
+            <div className="space-y-2.5 mb-5">
+              <div className="flex items-center gap-2 text-sm">
+                <Clock size={14} className="text-orange-400 flex-shrink-0" />
+                <span className="text-slate-300">{reserveModal.weekday}، {reserveModal.date} ساعت {reserveModal.time}</span>
+              </div>
+              {reserveModal.location && (
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin size={14} className="text-orange-400 flex-shrink-0" />
+                  <span className="text-slate-300">{reserveModal.location}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2 text-sm">
+                <Users size={14} className="text-orange-400 flex-shrink-0" />
+                <span className="text-slate-300">
+                  {reserveModal.capacity - (reserveModal.reserved ?? 0)} جای خالی از {reserveModal.capacity} ظرفیت
                 </span>
-                <div className="flex-1 h-1 bg-orange-200 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-orange-500 rounded-full transition-all"
-                    style={{
-                      width: `${Math.round((ev.reserved / ev.capacity) * 100)}%`,
-                    }}
-                  />
+              </div>
+              {reserveModal.price > 0 && (
+                <div className="rounded-xl px-3 py-2 flex items-center justify-between" style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.2)" }}>
+                  <span className="text-slate-400 text-xs">هزینه شرکت</span>
+                  <span className="text-orange-400 font-black text-base">
+                    {reserveModal.price.toLocaleString()} تومان
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* دکمه‌ها */}
+            <div className="flex gap-3">
+              <Link
+                href={`/events/${reserveModal.id}`}
+                className="flex-1 text-center py-3 rounded-2xl text-sm font-bold text-slate-300 transition-all"
+                style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)" }}
+                onClick={() => setReserveModal(null)}
+              >
+                جزئیات بیشتر
+              </Link>
+              <Link
+                href={`/events/${reserveModal.id}/booking`}
+                className="flex-1 text-center py-3 rounded-2xl text-sm font-black text-white transition-all"
+                style={{ background: "linear-gradient(135deg,#FF6B00,#FF9A3C)", boxShadow: "0 4px 16px rgba(255,107,0,0.35)" }}
+                onClick={() => setReserveModal(null)}
+              >
+                رزرو نهایی
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col -mx-4">
+        {events.map((ev) => {
+          const full = ev.capacity <= (ev.reserved ?? 0);
+          const remaining = ev.capacity - (ev.reserved ?? 0);
+
+          return (
+            <div key={ev.id} className="relative group">
+              {/* تصویر کارت با اورلی سورمه‌ای */}
+              <div
+                className="relative h-44 overflow-hidden"
+                style={{ background: "#1a3a5c" }}
+              >
+                <img
+                  src={getEventImage(ev.category, ev.id, ev.img)}
+                  alt={ev.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                {/* اورلی سبک برای خوانایی متن */}
+                <div className="absolute inset-0 bg-gradient-to-l from-black/70 via-black/30 to-transparent" />
+
+                {full && (
+                  <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-slate-700 text-[11px] font-black px-3 py-1 rounded-full shadow">
+                    ( تکمیل ظرفیت )
+                  </div>
+                )}
+
+                {ev.tags?.length > 0 && (
+                  <div className="absolute top-3 left-3 flex gap-1">
+                    {ev.tags.slice(0, 2).map((tag: string) => (
+                      <span
+                        key={tag}
+                        className="bg-orange-500/80 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-0.5 rounded-full"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="absolute right-3 bottom-3 left-28 text-white">
+                  <h3 className="font-black text-sm leading-snug drop-shadow-lg line-clamp-2 mb-1.5">
+                    {ev.title}
+                  </h3>
+                  <div className="flex items-center gap-1 text-white/80 mb-1">
+                    <Clock size={11} className="flex-shrink-0" />
+                    <span className="text-[10px] line-clamp-1">
+                      {ev.weekday}، {ev.date} ساعت {ev.time}
+                    </span>
+                  </div>
+                  {ev.location && (
+                    <div className="flex items-center gap-1 text-white/70">
+                      <MapPin size={10} className="flex-shrink-0" />
+                      <span className="text-[10px] line-clamp-1">
+                        {ev.location}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="absolute left-3 bottom-3 flex flex-col gap-1.5 items-end">
+                  <Link
+                    href={`/events/${ev.id}`}
+                    className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-xl border border-white/30 transition-all"
+                  >
+                    جزئیات
+                  </Link>
+                  {!full ? (
+                    <button
+                      onClick={() => setReserveModal(ev)}
+                      className="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-xs font-black px-4 py-2 rounded-xl transition-all"
+                      style={{ boxShadow: "0 4px 16px rgba(255,107,0,0.35)" }}
+                    >
+                      رزرو
+                    </button>
+                  ) : (
+                    <div className="bg-slate-800/60 backdrop-blur-sm text-white/60 text-[10px] font-bold px-3 py-2 rounded-xl">
+                      تکمیل ظرفیت
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
 
-            <div className="h-px bg-slate-100 mx-4" />
-          </div>
-        );
-      })}
-    </div>
+              {!full && remaining <= 4 && (
+                <div className="bg-orange-50 px-4 py-1.5 flex items-center gap-2">
+                  <Users size={12} className="text-orange-500 flex-shrink-0" />
+                  <span className="text-[11px] text-orange-700 font-bold">
+                    فقط {remaining} جای خالی باقی مانده!
+                  </span>
+                  <div className="flex-1 h-1 bg-orange-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-orange-500 rounded-full transition-all"
+                      style={{
+                        width: `${Math.round((ev.reserved / ev.capacity) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="h-px bg-slate-100 mx-4" />
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }

@@ -19,7 +19,7 @@ const testimonials: Testimonial[] = [
     name: "نگار حسینی",
     role: "شرکت‌کننده",
     avatar:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=256",
+      "/images/raavi-placeholder-1.svg",
     text: "فضا خیلی دوستانه بود، گفتگوها کیفیت داشت و با افراد هم‌فکر آشنا شدم. تجربه‌ای متفاوت!",
     rating: 5,
   },
@@ -28,7 +28,7 @@ const testimonials: Testimonial[] = [
     name: "پویان رستگار",
     role: "شرکت‌کننده",
     avatar:
-      "https://images.unsplash.com/photo-1547425260-76bcadfb4f2c?auto=format&fit=crop&q=80&w=256",
+      "/images/raavi-placeholder-2.svg",
     text: "بخش مچینگ هوشمند عالی بود! آشنایی‌های باکیفیتی شکل گرفت. پیشنهاد می‌کنم امتحان کنید.",
     rating: 4,
   },
@@ -37,7 +37,7 @@ const testimonials: Testimonial[] = [
     name: "مینا نادری",
     role: "شرکت‌کننده",
     avatar:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&q=80&w=256",
+      "/images/raavi-placeholder-3.svg",
     text: "مطمئن بودم فضا ایمنه و همین باعث شد راحت‌تر گفتگو کنم. تیم برگزاری فوق‌العاده بود.",
     rating: 5,
   },

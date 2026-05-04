@@ -23,7 +23,7 @@ export default function LoginPage() {
 function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/dashboard";
+  const redirectTo = searchParams.get("redirect") || "/events";
   const { login } = useApp();
 
   const [mode, setMode] = useState<Mode>("login");
@@ -42,7 +42,6 @@ function LoginPageInner() {
 
   useEffect(() => {
     setMounted(true);
-    // چرخش نظرات هر ۳ ثانیه
     const iv = setInterval(() => {
       setFade(false);
       setTimeout(() => {
@@ -65,13 +64,52 @@ function LoginPageInner() {
         return setError("نام باید حداقل ۲ حرف باشد.");
       if (!lastName.trim() || lastName.trim().length < 2)
         return setError("نام خانوادگی باید حداقل ۲ حرف باشد.");
+      setLoading(true);
+      try {
+        const checkRes = await fetch(`${API}/api/auth/check-phone`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mobileNumber: phone.replace(/\s/g, "") }),
+        });
+        if (checkRes.ok) {
+          const checkData = await checkRes.json();
+          if (checkData.exists) {
+            setError(
+              "شما قبلاً ثبت‌نام کرده‌اید. لطفاً از قسمت ورود وارد شوید.",
+            );
+            setLoading(false);
+            return;
+          }
+        }
+      } catch {}
+      setLoading(false);
     }
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/auth/request-otp`, {
+      const ck = await fetch(`${API}/api/auth/check-phone`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phone.replace(/\s/g, "") }),
+        body: JSON.stringify({ mobileNumber: phone.replace(/\s/g, "") }),
+      });
+      if (ck.ok) {
+        const cd = await ck.json();
+        if (mode === "login" && !cd.exists) {
+          setError("این شماره ثبت‌نام نشده است. لطفاً ابتدا ثبت‌نام کنید.");
+          setLoading(false);
+          return;
+        }
+        if (mode === "signup" && cd.exists) {
+          setError("شما قبلاً ثبت‌نام کرده‌اید. لطفاً از قسمت ورود وارد شوید.");
+          setLoading(false);
+          return;
+        }
+      }
+    } catch {}
+    try {
+      const res = await fetch(`${API}/otp/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mobileNumber: phone.replace(/\s/g, "") }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "خطا در ارسال کد");
@@ -96,11 +134,11 @@ function LoginPageInner() {
         mode === "signup"
           ? `${firstName.trim()} ${lastName.trim()}`
           : undefined;
-      const res = await fetch(`${API}/api/auth/verify-otp`, {
+      const res = await fetch(`${API}/otp/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          phone: phone.replace(/\s/g, ""),
+          mobileNumber: phone.replace(/\s/g, ""),
           code: otpCode,
           name: fullName,
         }),
@@ -113,11 +151,11 @@ function LoginPageInner() {
         localStorage.setItem("user", JSON.stringify(data.user));
         login(data.user, data.access_token);
         if (!data.user.isTestTaken || !data.user.isProfileComplete) {
-          router.push("/dashboard/complete-profile");
+          router.replace("/dashboard/complete-profile");
           return;
         }
       }
-      router.push(redirectTo);
+      router.replace(redirectTo);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -127,7 +165,7 @@ function LoginPageInner() {
 
   const t = testimonialsData[testimonialIdx];
   const inp =
-    "w-full border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white outline-none focus:ring-2 focus:ring-orange-400 transition placeholder:text-slate-400";
+    "w-full border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-black bg-white outline-none focus:ring-2 focus:ring-orange-400 transition placeholder:text-slate-400";
   const btn =
     "w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-orange-200 disabled:opacity-60 text-base";
 
@@ -136,7 +174,6 @@ function LoginPageInner() {
       className="min-h-screen flex items-center justify-center p-4"
       dir="rtl"
     >
-      {/* ── کارت اصلی دو ستونه ── */}
       <div
         className="w-full max-w-4xl rounded-[2rem] shadow-2xl overflow-hidden flex min-h-[600px]"
         style={{
@@ -145,12 +182,10 @@ function LoginPageInner() {
           border: "1px solid rgba(255,255,255,0.08)",
         }}
       >
-        {/* ── ستون چپ: فرم ── */}
         <div
           className="flex-1 p-8 md:p-10 flex flex-col justify-between relative"
           style={{ background: "rgba(10,22,40,0.6)" }}
         >
-          {/* بک‌گراند blob های سفید */}
           {mounted && (
             <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-r-[2rem]">
               <div className="absolute top-0 -left-10 w-[300px] h-[300px] bg-orange-400/10 rounded-full mix-blend-multiply filter blur-[60px] animate-blob" />
@@ -160,20 +195,19 @@ function LoginPageInner() {
           )}
 
           <div className="relative z-10">
-            {/* بازگشت */}
             <Link
-              href="/"
+              href="/events"
               className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 mb-8 transition"
             >
-              ← بازگشت به خانه
+              ← بازگشت به رویدادها
             </Link>
 
-            {/* تیتر */}
             {!otpSent ? (
               <>
                 <div className="mb-6">
-                  <div className="text-3xl mb-1">👋</div>
-                  <h2 className="text-2xl font-black text-white">خوش آمدید</h2>
+                  <h2 className="text-2xl font-black text-white">
+                    به پلتفرم راوی خوش آمدید
+                  </h2>
                   <p className="text-slate-400 mt-1 text-sm">
                     {mode === "login"
                       ? "لطفا برای ادامه شماره موبایل خود را وارد کنید."
@@ -181,7 +215,6 @@ function LoginPageInner() {
                   </p>
                 </div>
 
-                {/* تب ورود / ثبت‌نام */}
                 <div className="flex bg-white/10 p-1 rounded-2xl mb-6">
                   {(["login", "signup"] as Mode[]).map((m) => (
                     <button
@@ -201,7 +234,6 @@ function LoginPageInner() {
                   ))}
                 </div>
 
-                {/* خطا */}
                 {error && (
                   <div
                     className={`mb-4 px-4 py-3 rounded-xl text-sm ${
@@ -211,11 +243,22 @@ function LoginPageInner() {
                     }`}
                   >
                     {error}
+                    {error.includes("قبلاً ثبت‌نام") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMode("login");
+                          setError("");
+                        }}
+                        className="block mt-2 w-full bg-orange-500 text-white text-sm font-bold py-2 rounded-xl text-center"
+                      >
+                        رفتن به صفحه ورود ←
+                      </button>
+                    )}
                   </div>
                 )}
 
                 <form onSubmit={handleSendOtp} className="space-y-3">
-                  {/* نام و نام‌خانوادگی — فقط ثبت‌نام */}
                   {mode === "signup" && (
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -232,7 +275,7 @@ function LoginPageInner() {
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                          نام خانوادگی
+                          نام خانوادگی <span className="text-red-400">*</span>
                         </label>
                         <input
                           value={lastName}
@@ -245,22 +288,18 @@ function LoginPageInner() {
                     </div>
                   )}
 
-                  {/* شماره موبایل */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                       شماره موبایل
                     </label>
                     <div className="relative">
-                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                        📱
-                      </span>
                       <input
                         type="tel"
                         value={phone}
                         onChange={(e) =>
                           setPhone(e.target.value.replace(/[^\d]/g, ""))
                         }
-                        className={`${inp} pr-10 text-left`}
+                        className="w-full border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-black bg-white outline-none focus:ring-2 focus:ring-orange-400 transition placeholder:text-slate-400 text-left"
                         placeholder="09123456789"
                         dir="ltr"
                         maxLength={11}
@@ -279,7 +318,6 @@ function LoginPageInner() {
                 </form>
               </>
             ) : (
-              /* ── مرحله OTP ── */
               <>
                 <div className="mb-6">
                   <div className="text-3xl mb-1">🔐</div>
@@ -341,9 +379,7 @@ function LoginPageInner() {
             )}
           </div>
 
-          {/* پایین فرم */}
           <div className="relative z-10 mt-6 space-y-3">
-            {/* دکمه ورود همکاران */}
             <div className="border-t border-white/10 pt-4">
               <Link href="/cafe/login">
                 <button className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold py-3 rounded-2xl transition shadow-md active:scale-[0.98]">
@@ -369,14 +405,11 @@ function LoginPageInner() {
           </div>
         </div>
 
-        {/* ── ستون راست: سورمه‌ای ── */}
         <div className="hidden md:flex w-[42%] bg-[#1e2535] flex-col justify-between p-8 relative overflow-hidden">
-          {/* دایره‌های دکوراتیو پس‌زمینه */}
           <div className="absolute top-[-60px] right-[-60px] w-[220px] h-[220px] rounded-full bg-white/5" />
           <div className="absolute top-[-20px] right-[-20px] w-[140px] h-[140px] rounded-full bg-white/5" />
           <div className="absolute bottom-[-80px] left-[-40px] w-[260px] h-[260px] rounded-full bg-orange-500/10" />
 
-          {/* هدر سورمه‌ای */}
           <div className="relative z-10 flex items-center justify-between">
             <Image
               src="/logo.png"
@@ -390,7 +423,6 @@ function LoginPageInner() {
             </div>
           </div>
 
-          {/* محتوای وسط */}
           <div className="relative z-10 flex-1 flex flex-col justify-center py-8">
             <div className="w-14 h-14 bg-[#2a3347] rounded-2xl flex items-center justify-center mb-6 text-2xl shadow-lg">
               ✨
@@ -406,7 +438,6 @@ function LoginPageInner() {
             </p>
           </div>
 
-          {/* کارت نظر — داینامیک */}
           <div className="relative z-10">
             <div
               className="bg-[#2a3347] rounded-2xl p-5 transition-all duration-300"
@@ -415,7 +446,6 @@ function LoginPageInner() {
                 transform: fade ? "translateY(0)" : "translateY(6px)",
               }}
             >
-              {/* ستاره‌ها */}
               <div className="flex gap-1 mb-3">
                 {Array.from({ length: t?.rating || 5 }).map((_, i) => (
                   <span key={i} className="text-orange-400 text-sm">
@@ -448,7 +478,6 @@ function LoginPageInner() {
               </div>
             </div>
 
-            {/* نقاط نشانگر */}
             <div className="flex justify-center gap-1.5 mt-3">
               {testimonialsData.map((_, i) => (
                 <button

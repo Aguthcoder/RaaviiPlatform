@@ -32,6 +32,7 @@ export class TestResultsController {
         id: result.id,
         test_name: result.test_name,
         main_result: result.main_result,
+        scores: result.scores,
         completed_at: result.completed_at,
       })),
     };

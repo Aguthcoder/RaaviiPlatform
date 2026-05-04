@@ -10,7 +10,7 @@ async function bootstrap() {
   // سرو فایل‌های آپلود شده (تصاویر همنشینی)
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
 
-  // CORS — ترکیب FRONTEND_URL و CORS_ORIGINS از .env.production
+  // CORS — دامنه‌های مجاز
   const corsEnv = process.env.CORS_ORIGINS || '';
   const extraOrigins = corsEnv
     .split(',')
@@ -18,22 +18,39 @@ async function bootstrap() {
     .filter(Boolean);
 
   const allowedOrigins = [
+    // دامنه‌های محلی برای توسعه
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:3002',
+    // دامنه‌های production (hardcoded به عنوان fallback)
+    'https://raaviiplatform.com',
+    'https://www.raaviiplatform.com',
+    'https://api.raaviiplatform.com',
+    // دامنه از environment variable
     process.env.FRONTEND_URL || 'http://localhost:3000',
     ...extraOrigins,
   ].filter(Boolean);
 
-  console.log('✅ CORS allowed origins:', allowedOrigins);
+  // حذف مقادیر تکراری
+  const uniqueOrigins = [...new Set(allowedOrigins)];
+
+  console.log('✅ CORS allowed origins:', uniqueOrigins);
 
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, curl, n8n)
+      // درخواست‌های بدون origin مجاز هستند (موبایل، Postman، n8n)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+
+      if (uniqueOrigins.includes(origin)) {
         return callback(null, true);
       }
+
+      // در محیط غیر production همه origin ها مجاز هستند
+      if (process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+
+      console.warn(`⚠️ CORS blocked origin: ${origin}`);
       callback(new Error(`CORS: origin ${origin} not allowed`));
     },
     credentials: true,
@@ -49,6 +66,7 @@ async function bootstrap() {
     ],
     exposedHeaders: ['Authorization'],
     optionsSuccessStatus: 200,
+    preflightContinue: false,
   });
 
   app.useGlobalPipes(

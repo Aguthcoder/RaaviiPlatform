@@ -136,9 +136,23 @@ export class PaymentsController {
     (booking as any).confirmed_at = new Date();
     await this.bookingRepo.save(booking);
 
+    let seatsToIncrement = 1;
+    const plusOneBookingId = payment.metadata?.plusOneBookingId;
+    if (plusOneBookingId) {
+      const plusOneBooking = await this.bookingRepo.findOne({ where: { id: plusOneBookingId } });
+      if (plusOneBooking && plusOneBooking.status !== 'confirmed') {
+        plusOneBooking.status = 'confirmed';
+        plusOneBooking.payment_status = 'paid';
+        plusOneBooking.payment_id = payment.id;
+        (plusOneBooking as any).confirmed_at = new Date();
+        await this.bookingRepo.save(plusOneBooking);
+        seatsToIncrement += 1;
+      }
+    }
+
     // Increment event bookings counter
     if (booking.event_id) {
-      await this.eventRepo.increment({ id: booking.event_id }, 'current_bookings', 1);
+      await this.eventRepo.increment({ id: booking.event_id }, 'current_bookings', seatsToIncrement);
     }
   }
 }

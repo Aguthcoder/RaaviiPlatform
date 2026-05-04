@@ -20,6 +20,22 @@ export class AuthController {
     return await this.authService.verifyOtp(body.phone, body.code, body.name);
   }
 
+
+  @Post('check-phone')
+  @HttpCode(HttpStatus.OK)
+  async checkPhone(@Body() body: { phone: string }) {
+    const exists = await this.authService.checkPhoneExists(body.phone);
+    return { exists };
+  }
+
+
+  @Post('check-name')
+  @HttpCode(HttpStatus.OK)
+  async checkName(@Body() body: { name: string }) {
+    const exists = await this.authService.checkNameExists(body.name);
+    return { exists };
+  }
+
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() registerDto: RegisterDto) {

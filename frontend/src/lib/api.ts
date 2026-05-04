@@ -9,8 +9,15 @@ export const ADMIN_PHONES = [
 ];
 
 export function isAdminPhone(phone?: string | null): boolean {
+  let role = "";
+  if (typeof window !== "undefined") {
+    try {
+      role = JSON.parse(localStorage.getItem("user") || "{}").role || "";
+    } catch {}
+  }
+  if (role === "admin" || role === "super_admin") return true;
   if (!phone) return false;
-  const normalized = phone.replace(/\s|-/g, "");
+  const normalized = phone.replace(/[\s\-+]/g, "").replace(/^98/, "0");
   return ADMIN_PHONES.includes(normalized);
 }
 
@@ -98,10 +105,10 @@ export const fetchEvents = (params?: {
 export const fetchEventById = (id: string): Promise<ApiEvent> =>
   fetchAPI(`/api/events/${id}`);
 
-export const reserveEvent = (eventId: string, quantity = 1) =>
+export const reserveEvent = (eventId: string, quantity = 1, plusOneUserId?: string) =>
   fetchAPI("/api/bookings", {
     method: "POST",
-    body: JSON.stringify({ eventId, quantity }),
+    body: JSON.stringify({ eventId, quantity, plusOneUserId }),
   });
 
 export const createAdminEvent = (data: Partial<ApiEvent>) =>
@@ -389,6 +396,73 @@ export const fetchAdminAnalytics = (): Promise<AdminAnalytics> =>
     topEvents: [],
     userGrowth: [],
   }));
+
+
+// ─── Admin Users ──────────────────────────────────────────────────────────
+export interface AdminUser {
+  id: string;
+  name?: string;
+  mobileNumber?: string;
+  city?: string;
+  role?: string;
+  isTestTaken?: boolean;
+  createdAt?: string;
+  bookingCount?: number;
+  latestTestResult?: {
+    id: string;
+    test_name: string;
+    main_result: string;
+    scores?: any;
+    completed_at?: string;
+  } | null;
+}
+
+export const fetchAllUsers = (params?: {
+  city?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ users: AdminUser[]; total: number }> => {
+  const q = params
+    ? Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== "")
+        .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+        .join("&")
+    : "";
+  return fetchAPI(`/api/admin/users${q ? "?" + q : ""}`);
+};
+
+export const updateAdminUserRole = (
+  userId: string,
+  role: "user" | "admin",
+): Promise<AdminUser> =>
+  fetchAPI(`/api/admin/users/${userId}/role`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
+  });
+
+export const fetchMyTestResults = (): Promise<{ data: any[] }> =>
+  fetchAPI("/api/test-results/my").catch(() => ({ data: [] }));
+
+export const saveTestResult = (data: {
+  test_name: string;
+  main_result: string;
+  scores: any;
+}) =>
+  fetchAPI("/api/test-results", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export interface PlusOneCandidate {
+  id: string;
+  name?: string;
+  mobileNumber?: string;
+  city?: string;
+  completionPercentage?: number;
+}
+
+export const fetchPlusOneCandidates = (eventId?: string): Promise<{ users: PlusOneCandidate[] }> =>
+  fetchAPI(`/api/bookings/plus-one-candidates${eventId ? `?eventId=${encodeURIComponent(eventId)}` : ""}`);
 
 // ─── User public profile (admin only) ─────────────────────────────────────
 export const fetchUserPublicProfile = (

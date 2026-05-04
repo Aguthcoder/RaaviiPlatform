@@ -71,12 +71,12 @@ export default function Hero({ ctaHref }: HeroProps) {
           <div className="relative">
             <div className="aspect-square md:aspect-auto md:h-[500px] lg:h-[600px] rounded-[30px] md:rounded-[40px] overflow-hidden shadow-2xl shadow-orange-200/30 border-4 border-white/90 backdrop-blur-sm">
               <img
-                src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=1000&q=80"
+                src="/images/raavi-placeholder-1.svg"
                 alt="گروهی از افراد در حال گفتگو و تعامل در یک محیط دوستانه"
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   e.currentTarget.src =
-                    "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=1000&q=80";
+                    "/images/raavi-placeholder-2.svg";
                   e.currentTarget.alt =
                     "تصویر جایگزین: تیمی در حال همکاری و گفتگو";
                 }}

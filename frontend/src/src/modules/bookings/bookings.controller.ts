@@ -35,6 +35,33 @@ export class BookingsController {
     @InjectRepository(User) private userRepo: Repository<User>,
   ) {}
 
+  @Get('plus-one-candidates')
+  async plusOneCandidates(@Req() req: any, @Query('eventId') eventId?: string) {
+    const profiles = await this.userRepo.manager.getRepository('profiles').find({
+      where: { is_public: true } as any,
+      take: 80,
+    }).catch(() => [] as any[]);
+    const users: any[] = [];
+    for (const profile of profiles as any[]) {
+      if (!profile.user_id || profile.user_id === req.user.id) continue;
+      if (Number(profile.profile_completion_percentage || 0) < 60) continue;
+      if (eventId) {
+        const existing = await this.bookingRepo.findOne({ where: { event_id: eventId, user_id: profile.user_id } });
+        if (existing && existing.status !== 'cancelled') continue;
+      }
+      const user = await this.userRepo.findOne({ where: { id: profile.user_id } });
+      if (!user || (user as any).isBanned) continue;
+      users.push({
+        id: user.id,
+        name: user.name || `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'کاربر راوی',
+        mobileNumber: user.mobileNumber,
+        city: profile.city,
+        completionPercentage: profile.profile_completion_percentage || 0,
+      });
+    }
+    return { users };
+  }
+
   /**
    * POST /api/bookings
    * Supports both legacy { service, bookingDate } and new { eventId } formats
@@ -45,7 +72,7 @@ export class BookingsController {
 
     // New event-based booking
     if (body.eventId) {
-      return this.bookEventAndInitiatePayment(userId, body.eventId, body.callbackUrl);
+      return this.bookEventAndInitiatePayment(userId, body.eventId, body.callbackUrl, body.plusOneUserId);
     }
 
     // Legacy booking format
@@ -56,7 +83,7 @@ export class BookingsController {
    * Book an event and create a pending payment record.
    * Returns payment URL to redirect user to payment gateway.
    */
-  private async bookEventAndInitiatePayment(userId: string, eventId: string, callbackUrl?: string) {
+  private async bookEventAndInitiatePayment(userId: string, eventId: string, callbackUrl?: string, plusOneUserId?: string) {
     const event = await this.eventRepo.findOne({ where: { id: eventId, is_active: true } });
     if (!event) throw new NotFoundException('رویداد یافت نشد');
 
@@ -67,8 +94,9 @@ export class BookingsController {
       throw new BadRequestException('حساب کاربری شما مسدود شده است');
     }
 
-    if (event.current_bookings >= event.capacity) {
-      throw new BadRequestException('ظرفیت رویداد تکمیل است');
+    const requestedSeats = plusOneUserId ? 2 : 1;
+    if (event.current_bookings + requestedSeats > event.capacity) {
+      throw new BadRequestException('ظرفیت رویداد برای این تعداد نفر کافی نیست');
     }
 
     // Check duplicate booking
@@ -77,6 +105,21 @@ export class BookingsController {
     });
     if (existing && existing.status !== 'cancelled') {
       throw new BadRequestException('قبلاً این رویداد را رزرو کرده‌اید');
+    }
+
+    let plusOneBooking: Booking | null = null;
+    if (plusOneUserId) {
+      if (plusOneUserId === userId) throw new BadRequestException('نمی‌توانید خودتان را به عنوان همراه انتخاب کنید');
+      const guest = await this.userRepo.findOne({ where: { id: plusOneUserId } });
+      if (!guest) throw new NotFoundException('کاربر همراه یافت نشد');
+      const guestProfile = await this.userRepo.manager.getRepository('profiles').findOne({ where: { user_id: plusOneUserId } as any }).catch(() => null as any);
+      if (!guestProfile || Number(guestProfile.profile_completion_percentage || 0) < 60) {
+        throw new BadRequestException('پروفایل همراه باید تکمیل باشد');
+      }
+      const guestExisting = await this.bookingRepo.findOne({ where: { event_id: eventId, user_id: plusOneUserId } });
+      if (guestExisting && guestExisting.status !== 'cancelled') {
+        throw new BadRequestException('همراه انتخاب‌شده قبلاً این رویداد را رزرو کرده است');
+      }
     }
 
     const price = Number(event.price);
@@ -92,11 +135,23 @@ export class BookingsController {
     } as any);
     const savedBooking = (await this.bookingRepo.save(booking)) as any as Booking;
 
+    if (plusOneUserId) {
+      plusOneBooking = (await this.bookingRepo.save(this.bookingRepo.create({
+        event_id: eventId,
+        user_id: plusOneUserId,
+        status: 'pending',
+        payment_status: 'unpaid',
+        amount_paid: price,
+        booking_code: `RV-P1-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+        metadata: { reserved_by_user_id: userId, primary_booking_id: savedBooking.id, type: 'plus_one' },
+      } as any))) as any as Booking;
+    }
+
     // Create pending payment record (store intended amount for integrity check)
     const payment = this.paymentRepo.create({
       user_id: userId,
       booking_id: savedBooking.id,
-      amount: price,
+      amount: price * requestedSeats,
       currency: 'IRR',
       payment_method: 'zarinpal',
       payment_gateway: 'zarinpal',
@@ -105,7 +160,9 @@ export class BookingsController {
       metadata: {
         eventId,
         eventTitle: event.title,
-        intendedAmount: price, // CRITICAL: store for integrity check on callback
+        plusOneBookingId: plusOneBooking?.id,
+        plusOneUserId,
+        intendedAmount: price * requestedSeats, // CRITICAL: store for integrity check on callback
         callbackUrl: callbackUrl || `${API_BASE}/payment-success`,
       },
     } as any);
@@ -117,7 +174,7 @@ export class BookingsController {
 
     if (IS_DEV || !ZARINPAL_MERCHANT) {
       // DEV: mock payment URL — simulates gateway redirect
-      paymentUrl = `${cb}?bookingId=${savedBooking.id}&paymentId=${savedPayment.id}&mock=true&amount=${price}`;
+      paymentUrl = `${cb}?bookingId=${savedBooking.id}&paymentId=${savedPayment.id}&mock=true&amount=${price * requestedSeats}`;
       console.log(`[DEV PAYMENT] Booking ${savedBooking.id}, amount ${price} IRR → mock URL generated`);
     } else {
       // PRODUCTION: real Zarinpal request
@@ -127,7 +184,7 @@ export class BookingsController {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             merchant_id: ZARINPAL_MERCHANT,
-            amount: price,
+            amount: price * requestedSeats,
             description: `رزرو همنشینی: ${event.title}`,
             callback_url: `${process.env.BACKEND_URL || 'http://localhost:4000'}/api/payments/verify?bookingId=${savedBooking.id}&paymentId=${savedPayment.id}`,
           }),
@@ -152,10 +209,11 @@ export class BookingsController {
       bookingId: savedBooking.id,
       paymentId: savedPayment.id,
       paymentUrl,
-      amount: price,
+      amount: price * requestedSeats,
       currency: 'IRR',
       eventTitle: event.title,
       bookingCode: savedBooking.booking_code,
+      plusOneBookingId: plusOneBooking?.id,
     };
   }
 

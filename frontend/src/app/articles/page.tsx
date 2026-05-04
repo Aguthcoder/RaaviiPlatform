@@ -47,20 +47,20 @@ const CATEGORY_BADGE: Record<string, { bg: string; text: string }> = {
 // تصاویر ثابت Unsplash براساس موضوع مقاله
 const CATEGORY_IMAGES: Record<string, string> = {
   attachment:
-    "https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?w=600&h=280&fit=crop&auto=format",
+    "/images/raavi-placeholder-1.svg",
   communication:
-    "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=600&h=280&fit=crop&auto=format",
+    "/images/raavi-placeholder-2.svg",
   emotion:
-    "https://images.unsplash.com/photo-1499557354967-2b2d8910bcca?w=600&h=280&fit=crop&auto=format",
+    "/images/raavi-placeholder-3.svg",
   social:
-    "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&h=280&fit=crop&auto=format",
+    "/images/raavi-placeholder-4.svg",
   psychology:
-    "https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=600&h=280&fit=crop&auto=format",
+    "/images/raavi-placeholder-5.svg",
   relationship:
-    "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=600&h=280&fit=crop&auto=format",
+    "/images/raavi-placeholder-6.svg",
   // fallback
   default:
-    "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&h=280&fit=crop&auto=format",
+    "/images/raavi-placeholder-1.svg",
 };
 
 // رنگ گرادیانت overlay روی تصویر، متناسب با دسته‌بندی

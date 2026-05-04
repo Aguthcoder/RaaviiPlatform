@@ -1,6 +1,28 @@
-node_modules
-.next
-npm-debug.log
+# Git
 .git
-*.zip
-*.rar
+.gitignore
+
+# Local env files - باید از build context خارج بشن تا production env override نشه
+.env.local
+.env.*.local
+
+# Node modules
+node_modules
+npm-debug.log*
+
+# Build output
+.next
+out
+
+# IDE
+.vscode
+.idea
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+coverage
+*.test.*
+*.spec.*

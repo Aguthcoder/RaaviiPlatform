@@ -1,150 +1,221 @@
 'use client';
-import { useEffect, useRef } from 'react';
 
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+
+// ─── SVG شیپ اصلی ───────────────────────────────────────────────────────────
+const SHAPE_SVG = `<svg viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="c" gradientTransform="rotate(45 .5 .5)"><stop offset="0%" stop-color="#FAD961"/><stop offset="100%" stop-color="#F76B1C"/></linearGradient><clipPath id="b"><path fill="currentColor" d="M722.5 714.5Q500 929 275 714.5t0-427q225-212.5 447.5 0t0 427Z"/></clipPath></defs><g clip-path="url(#b)"><path fill="url(#c)" d="M722.5 714.5Q500 929 275 714.5t0-427q225-212.5 447.5 0t0 427Z"/></g></svg>`;
+
+// ─── تعریف شیپ‌ها با سایزهای متنوع‌تر ──────────────────────────────────────
+const SHAPES_CONFIG = [
+  { id: 1,  size: 180, top: 8,  left: 10, dur: 20, delay: 0,    op: 0.55, xR: 90,  yR: 70,  rot: 20  },
+  { id: 2,  size: 90,  top: 20, left: 78, dur: 25, delay: -6,   op: 0.48, xR: 110, yR: 80,  rot: -35 },
+  { id: 3,  size: 240, top: 52, left: 3,  dur: 30, delay: -12,  op: 0.42, xR: 70,  yR: 100, rot: 50  },
+  { id: 4,  size: 70,  top: 78, left: 85, dur: 17, delay: -4,   op: 0.60, xR: 100, yR: 55,  rot: -18 },
+  { id: 5,  size: 150, top: 40, left: 52, dur: 34, delay: -18,  op: 0.45, xR: 120, yR: 110, rot: 65  },
+  { id: 6,  size: 60,  top: 88, left: 28, dur: 22, delay: -9,   op: 0.62, xR: 80,  yR: 60,  rot: -50 },
+  { id: 7,  size: 120, top: 12, left: 43, dur: 27, delay: -14,  op: 0.50, xR: 100, yR: 85,  rot: 30  },
+  { id: 8,  size: 200, top: 60, left: 68, dur: 32, delay: -22,  op: 0.40, xR: 75,  yR: 115, rot: -65 },
+  { id: 9,  size: 55,  top: 44, left: 18, dur: 18, delay: -5,   op: 0.65, xR: 105, yR: 60,  rot: 15  },
+  { id: 10, size: 100, top: 4,  left: 88, dur: 24, delay: -20,  op: 0.52, xR: 90,  yR: 75,  rot: -22 },
+  { id: 11, size: 160, top: 82, left: 58, dur: 38, delay: -28,  op: 0.44, xR: 95,  yR: 120, rot: 55  },
+  { id: 12, size: 75,  top: 32, left: 33, dur: 21, delay: -8,   op: 0.58, xR: 115, yR: 80,  rot: -40 },
+  { id: 13, size: 210, top: 68, left: 45, dur: 40, delay: -32,  op: 0.38, xR: 60,  yR: 100, rot: 75  },
+  { id: 14, size: 85,  top: 50, left: 80, dur: 26, delay: -15,  op: 0.56, xR: 100, yR: 65,  rot: -28 },
+  { id: 15, size: 130, top: 18, left: 62, dur: 29, delay: -24,  op: 0.47, xR: 85,  yR: 95,  rot: 42  },
+];
+
+// ─── تایپ برای دایره‌های برخورد ─────────────────────────────────────────────
+type Spark = {
+  id: number;
+  x: number;
+  y: number;
+  born: number;
+};
+
+// ─── محاسبه موقعیت واقعی هر شیپ با توجه به animation keyframes ──────────────
+function getShapePos(
+  shape: typeof SHAPES_CONFIG[0],
+  t: number, // زمان به ثانیه
+  vw: number,
+  vh: number
+): { x: number; y: number } {
+  const dur = shape.dur;
+  const delay = shape.delay;
+  // normalize time در بازه [0,1] در طول animation
+  const raw = ((t - delay) % dur) / dur;
+  const p = raw < 0 ? raw + 1 : raw;
+
+  // keyframe positions (موافق floatShape CSS)
+  const kx = [0, shape.xR * 0.6, -shape.xR * 0.8, shape.xR * 0.4, 0];
+  const ky = [0, -shape.yR * 0.7, shape.yR * 0.5, -shape.yR * 0.3, 0];
+  const kt = [0, 0.25, 0.5, 0.75, 1.0];
+
+  // پیدا کردن segment
+  let seg = 0;
+  for (let i = 0; i < kt.length - 1; i++) {
+    if (p >= kt[i] && p <= kt[i + 1]) { seg = i; break; }
+  }
+  const segP = (p - kt[seg]) / (kt[seg + 1] - kt[seg]);
+  // ease-in-out interpolation
+  const ease = segP < 0.5 ? 2 * segP * segP : -1 + (4 - 2 * segP) * segP;
+
+  const dx = kx[seg] + (kx[seg + 1] - kx[seg]) * ease;
+  const dy = ky[seg] + (ky[seg + 1] - ky[seg]) * ease;
+
+  const baseX = (shape.left / 100) * vw;
+  const baseY = (shape.top / 100) * vh;
+
+  return { x: baseX + dx, y: baseY + dy };
+}
+
+// ─── کامپوننت اصلی ──────────────────────────────────────────────────────────
 export function AnimatedBackground() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef<number>();
-  const tRef = useRef(0);
+  const shapeUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(SHAPE_SVG)}`;
+  const [sparks, setSparks] = useState<Spark[]>([]);
+  const sparkIdRef = useRef(0);
+  const lastCollisionRef = useRef<Set<string>>(new Set());
+  const rafRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  const detectCollisions = useCallback(() => {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const now = performance.now() / 1000; // ثانیه
 
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resize();
+    if (startTimeRef.current === null) startTimeRef.current = now;
 
-    interface Orb {
-      x: number; y: number;
-      vx: number; vy: number;
-      r: number;
-      baseOpacity: number;
-      phase: number;
-      hue: number;
+    const positions = SHAPES_CONFIG.map((s) => ({
+      ...s,
+      pos: getShapePos(s, now, vw, vh),
+    }));
+
+    const newSparks: Spark[] = [];
+    const currentPairs = new Set<string>();
+
+    for (let i = 0; i < positions.length; i++) {
+      for (let j = i + 1; j < positions.length; j++) {
+        const a = positions[i];
+        const b = positions[j];
+        const dx = a.pos.x - b.pos.x;
+        const dy = a.pos.y - b.pos.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const threshold = (a.size + b.size) / 2 * 0.6; // آستانه برخورد
+
+        const pairKey = `${a.id}-${b.id}`;
+
+        if (dist < threshold) {
+          currentPairs.add(pairKey);
+          // فقط اگه قبلاً این برخورد detect نشده بود
+          if (!lastCollisionRef.current.has(pairKey)) {
+            newSparks.push({
+              id: ++sparkIdRef.current,
+              x: (a.pos.x + b.pos.x) / 2 + a.size / 2,
+              y: (a.pos.y + b.pos.y) / 2 + a.size / 2,
+              born: Date.now(),
+            });
+          }
+        }
+      }
     }
 
-    const PALETTES = [
-      { r: 255, g: 107, b: 0 },    // orange
-      { r: 255, g: 154, b: 60 },   // light orange
-      { r: 234, g: 88,  b: 12 },   // deep orange
-      { r: 249, g: 115, b: 22 },   // mid orange
-      { r: 27,  g: 42,  b: 74 },   // navy #1B2A4A
-      { r: 15,  g: 30,  b: 60 },   // deep navy
-      { r: 255, g: 140, b: 30 },   // amber
-      { r: 40,  g: 60,  b: 110 },  // mid navy
-    ];
+    lastCollisionRef.current = currentPairs;
 
-    const makeOrbs = (): Orb[] => {
-      const w = canvas.width;
-      const h = canvas.height;
-      return Array.from({ length: 10 }, (_, i) => {
-        const angle = (i * 36 * Math.PI) / 180;
-        const speed = 0.28 + Math.random() * 0.22; // ↑ slightly faster
-        return {
-          x: Math.random() * w,
-          y: Math.random() * h,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          r: 65 + Math.random() * 80,   // ~25% smaller: was 90+110, now 65+80
-          baseOpacity: 0.28 + Math.random() * 0.22, // clearly visible
-          phase: (i / 10) * Math.PI * 2,
-          hue: i % PALETTES.length,
-        };
+    if (newSparks.length > 0) {
+      setSparks((prev) => {
+        // حذف spark های قدیمی (بیشتر از 3 ثانیه)
+        const fresh = prev.filter((s) => Date.now() - s.born < 3000);
+        return [...fresh, ...newSparks];
       });
-    };
-
-    let orbs = makeOrbs();
-
-    const handleResize = () => { resize(); orbs = makeOrbs(); };
-    window.addEventListener('resize', handleResize);
-
-    const draw = () => {
-      tRef.current += 0.009; // ↑ slightly faster (was 0.007)
-      const t = tRef.current;
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      orbs.forEach((b) => {
-        b.x += b.vx + Math.sin(t * 0.8 + b.phase) * 0.3;
-        b.y += b.vy + Math.cos(t * 0.6 + b.phase) * 0.3;
-
-        if (b.x + b.r > canvas.width || b.x - b.r < 0) {
-          b.vx *= -1;
-          b.x = Math.max(b.r, Math.min(canvas.width - b.r, b.x));
-        }
-        if (b.y + b.r > canvas.height || b.y - b.r < 0) {
-          b.vy *= -1;
-          b.y = Math.max(b.r, Math.min(canvas.height - b.r, b.y));
-        }
-
-        const pulse = 1 + 0.07 * Math.sin(t * 1.2 + b.phase);
-        const r = b.r * pulse;
-        const alpha = b.baseOpacity + 0.06 * Math.sin(t * 0.8 + b.phase);
-
-        const { r: cr, g: cg, b: cb } = PALETTES[b.hue];
-
-        // 3D radial gradient — off-center top-left light source
-        const lightX = b.x - r * 0.38;
-        const lightY = b.y - r * 0.38;
-
-        const g = ctx.createRadialGradient(lightX, lightY, r * 0.01, b.x, b.y, r);
-        g.addColorStop(0,    `rgba(${cr},${cg},${cb},${Math.min(1, alpha * 2.0)})`);
-        g.addColorStop(0.12, `rgba(${cr},${cg},${cb},${Math.min(1, alpha * 1.65)})`);
-        g.addColorStop(0.35, `rgba(${cr},${cg},${cb},${alpha * 1.1})`);
-        g.addColorStop(0.65, `rgba(${cr},${cg},${cb},${alpha * 0.5})`);
-        g.addColorStop(0.88, `rgba(${cr},${cg},${cb},${alpha * 0.12})`);
-        g.addColorStop(1,    `rgba(${cr},${cg},${cb},0)`);
-
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = g;
-        ctx.fill();
-
-        // Specular highlight — 3D sheen
-        const hl = ctx.createRadialGradient(lightX, lightY, 0, lightX, lightY, r * 0.45);
-        hl.addColorStop(0,   `rgba(255,250,240,${alpha * 1.0})`);
-        hl.addColorStop(0.3, `rgba(255,235,200,${alpha * 0.45})`);
-        hl.addColorStop(1,   `rgba(255,220,170,0)`);
-
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, r * 0.9, 0, Math.PI * 2);
-        ctx.fillStyle = hl;
-        ctx.fill();
-
-        // Outer shadow ring (depth)
-        const rim = ctx.createRadialGradient(b.x, b.y, r * 0.78, b.x, b.y, r * 1.06);
-        rim.addColorStop(0,   `rgba(${cr},${Math.max(0,cg-20)},0,0)`);
-        rim.addColorStop(0.5, `rgba(${cr},${Math.max(0,cg-30)},0,${alpha * 0.15})`);
-        rim.addColorStop(1,   `rgba(${cr},${Math.max(0,cg-40)},0,0)`);
-
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, r * 1.06, 0, Math.PI * 2);
-        ctx.fillStyle = rim;
-        ctx.fill();
+    } else {
+      // cleanup هر چند فریم
+      setSparks((prev) => {
+        const fresh = prev.filter((s) => Date.now() - s.born < 3000);
+        return fresh.length === prev.length ? prev : fresh;
       });
+    }
 
-      rafRef.current = requestAnimationFrame(draw);
-    };
-
-    draw();
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
+    rafRef.current = requestAnimationFrame(detectCollisions);
   }, []);
 
+  useEffect(() => {
+    rafRef.current = requestAnimationFrame(detectCollisions);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [detectCollisions]);
+
   return (
-    <canvas
-      ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-0"
-      aria-hidden="true"
-    />
+    <>
+      <style>{`
+        @keyframes floatShape {
+          0%   { transform: translate(0px, 0px) rotate(0deg) scale(1); }
+          25%  { transform: translate(var(--x1), var(--y1)) rotate(var(--r1)) scale(1.05); }
+          50%  { transform: translate(var(--x2), var(--y2)) rotate(var(--r2)) scale(0.95); }
+          75%  { transform: translate(var(--x3), var(--y3)) rotate(var(--r3)) scale(1.08); }
+          100% { transform: translate(0px, 0px) rotate(0deg) scale(1); }
+        }
+        @keyframes sparkAppear {
+          0%   { transform: translate(-50%, -50%) scale(0);   opacity: 0.9; }
+          30%  { transform: translate(-50%, -50%) scale(1.4); opacity: 0.8; }
+          70%  { transform: translate(-50%, -50%) scale(1.1); opacity: 0.5; }
+          100% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+        }
+      `}</style>
+
+      <div
+        className="fixed inset-0 pointer-events-none overflow-hidden"
+        style={{ zIndex: 0 }}
+        aria-hidden="true"
+      >
+        {/* ── شیپ‌های اصلی ── */}
+        {SHAPES_CONFIG.map((s) => (
+          <div
+            key={s.id}
+            style={{
+              position: 'absolute',
+              top: `${s.top}%`,
+              left: `${s.left}%`,
+              width: s.size,
+              height: s.size,
+              backgroundImage: `url("${shapeUrl}")`,
+              backgroundSize: 'contain',
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'center',
+              opacity: s.op,
+              animation: `floatShape ${s.dur}s ease-in-out ${s.delay}s infinite`,
+              '--x1': `${Math.round(s.xR * 0.6)}px`,
+              '--y1': `${Math.round(-s.yR * 0.7)}px`,
+              '--x2': `${Math.round(-s.xR * 0.8)}px`,
+              '--y2': `${Math.round(s.yR * 0.5)}px`,
+              '--x3': `${Math.round(s.xR * 0.4)}px`,
+              '--y3': `${Math.round(-s.yR * 0.3)}px`,
+              '--r1': `${s.rot}deg`,
+              '--r2': `${Math.round(-s.rot * 0.7)}deg`,
+              '--r3': `${Math.round(s.rot * 1.3)}deg`,
+              willChange: 'transform',
+            } as React.CSSProperties}
+          />
+        ))}
+
+        {/* ── دایره‌های برخورد (sparks) ── */}
+        {sparks.map((spark) => (
+          <div
+            key={spark.id}
+            style={{
+              position: 'absolute',
+              left: spark.x,
+              top: spark.y,
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(250,217,97,0.95) 0%, rgba(247,107,28,0.7) 60%, transparent 100%)',
+              boxShadow: '0 0 12px 4px rgba(247,107,28,0.4)',
+              animation: 'sparkAppear 3s ease-out forwards',
+              pointerEvents: 'none',
+            }}
+          />
+        ))}
+      </div>
+    </>
   );
 }

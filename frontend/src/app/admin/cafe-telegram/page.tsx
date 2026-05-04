@@ -123,7 +123,26 @@ export default function CafeTelegramPage() {
   const linkedCount = cafes.filter(
     (c) => c.telegram_linked && c.is_active,
   ).length;
-  const totalActive = cafes.filter((c) => c.is_active).length;
+  // کافه فعال = کافه‌هایی که حداقل یک‌بار رویداد در آنها برگزار شده (بر اساس location یا cafe_id یا اسم کافه)
+  const cafeEventCounts: Record<string, number> = {};
+  events.forEach((ev: any) => {
+    // match by cafe_id
+    if (ev.cafe_id) cafeEventCounts[ev.cafe_id] = (cafeEventCounts[ev.cafe_id] || 0) + 1;
+    // match by location string containing cafe name
+    const loc = (ev.location || "").toString().toLowerCase();
+    if (loc) {
+      cafes.forEach((c) => {
+        if (c.cafe_name && loc.includes(c.cafe_name.toLowerCase())) {
+          cafeEventCounts[c.id] = (cafeEventCounts[c.id] || 0) + 1;
+        }
+      });
+    }
+  });
+  // کافه فعال = حداقل یک بار رویداد در آن کافه برگزار شده
+  const totalActive = cafes.filter((c) => {
+    const eventCount = cafeEventCounts[c.id] || 0;
+    return eventCount >= 1;
+  }).length;
 
   const S = {
     card: {

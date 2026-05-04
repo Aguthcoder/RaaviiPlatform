@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, MapPin, Clock, Users, Calendar, Tag, ChevronLeft, Lock } from "lucide-react";
+import { ArrowRight, MapPin, Clock, Users, Calendar, Tag, ChevronLeft, Lock, UserPlus } from "lucide-react";
 import { getEventImage, getEventImageFallback } from "@/lib/dynamic-images";
 import { useApp } from "@/context/AppContext";
+import { fetchPlusOneCandidates, reserveEvent, PlusOneCandidate } from "@/lib/api";
 
 const MOCK_EVENTS_MAP: Record<string, any> = {
   "ev-1": {
@@ -64,6 +65,10 @@ export default function EventDetailPage() {
   const { state } = useApp();
   const [event, setEvent] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [plusOneOpen, setPlusOneOpen] = useState(false);
+  const [plusOneUsers, setPlusOneUsers] = useState<PlusOneCandidate[]>([]);
+  const [plusOneUserId, setPlusOneUserId] = useState("");
+  const [bookingLoading, setBookingLoading] = useState(false);
 
   useEffect(() => {
     if (MOCK_EVENTS_MAP[params.id]) {
@@ -94,6 +99,31 @@ export default function EventDetailPage() {
 
     return () => ctrl.abort();
   }, [params.id]);
+
+  const loadPlusOneUsers = async () => {
+    setPlusOneOpen((v) => !v);
+    if (plusOneUsers.length || !params.id) return;
+    try {
+      const data = await fetchPlusOneCandidates(params.id);
+      setPlusOneUsers(data.users || []);
+    } catch {
+      setPlusOneUsers([]);
+    }
+  };
+
+  const handleReserve = async () => {
+    if (!state.isLoggedIn) { router.push("/login"); return; }
+    setBookingLoading(true);
+    try {
+      const res = await reserveEvent(event.id, plusOneUserId ? 2 : 1, plusOneUserId || undefined);
+      if (res?.paymentUrl) window.location.href = res.paymentUrl;
+      else router.push("/dashboard");
+    } catch (err: any) {
+      alert(err?.message || "خطا در ثبت رزرو");
+    } finally {
+      setBookingLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -273,6 +303,25 @@ export default function EventDetailPage() {
         )}
 
         {/* برگزارکننده */}
+        {state.isLoggedIn && (
+          <div className="mb-6 bg-slate-50 rounded-2xl p-4 border border-slate-100">
+            <button onClick={loadPlusOneUsers} className="w-full flex items-center justify-between text-right">
+              <span className="flex items-center gap-2 font-black text-slate-900"><UserPlus size={18} className="text-orange-500" /> انتخاب همراه Plus One</span>
+              <span className="text-xs text-orange-500 font-bold">اختیاری</span>
+            </button>
+            {plusOneOpen && (
+              <div className="mt-4 space-y-3">
+                <p className="text-xs text-slate-500 leading-6">اگر پروفایل شما کامل باشد، می‌توانید یک کاربر با پروفایل کامل را برای همین رویداد ثبت‌نام کنید.</p>
+                <select value={plusOneUserId} onChange={(e) => setPlusOneUserId(e.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-sm text-slate-800 outline-none">
+                  <option value="">بدون همراه</option>
+                  {plusOneUsers.map((u) => <option key={u.id} value={u.id}>{u.name || u.mobileNumber || "کاربر راوی"} {u.city ? `- ${u.city}` : ""}</option>)}
+                </select>
+                {plusOneUsers.length === 0 && <p className="text-xs text-slate-400">کاربر واجد شرایطی برای همراه پیدا نشد.</p>}
+              </div>
+            )}
+          </div>
+        )}
+
         {event.host && (
           <div className="mb-8 bg-slate-50 rounded-2xl p-4 flex items-center gap-3">
             <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-xl flex-shrink-0">
@@ -301,12 +350,13 @@ export default function EventDetailPage() {
               تکمیل ظرفیت
             </div>
           ) : (
-            <Link
-              href={state.isLoggedIn ? `/events/${event.id}/booking` : "/login"}
-              className="flex-1 bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white text-sm font-black py-3.5 rounded-2xl text-center shadow-lg shadow-orange-500/30 transition-all"
+            <button
+              onClick={handleReserve}
+              disabled={bookingLoading}
+              className="flex-1 bg-orange-500 hover:bg-orange-600 active:scale-[0.98] disabled:opacity-60 text-white text-sm font-black py-3.5 rounded-2xl text-center shadow-lg shadow-orange-500/30 transition-all"
             >
-              {state.isLoggedIn ? "رزرو این همنشینی" : "ورود برای رزرو"}
-            </Link>
+              {bookingLoading ? "در حال ثبت..." : state.isLoggedIn ? (plusOneUserId ? "رزرو با Plus One" : "رزرو این همنشینی") : "ورود برای رزرو"}
+            </button>
           )}
         </div>
       </div>

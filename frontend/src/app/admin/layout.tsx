@@ -31,6 +31,7 @@ const NAV_ITEMS = [
   { href: "/admin/cafe-telegram", label: "ربات کافه‌ها", icon: Coffee },
   // ✅ لینک جدید CRM
   { href: "/admin/crm", label: "CRM هوشمند", icon: Brain, highlight: true },
+  { href: "/admin/ai-chat", label: "چت ادمین AI", icon: Brain },
 ];
 
 export default function AdminLayout({
@@ -73,7 +74,7 @@ export default function AdminLayout({
     <div
       className="min-h-screen relative"
       dir="rtl"
-      style={{ background: "#0a1628" }}
+      style={{ background: "transparent" }}
     >
       <AnimatedBackground />
 
@@ -85,20 +86,24 @@ export default function AdminLayout({
           borderLeft: "1px solid rgba(255,255,255,0.07)",
         }}
       >
-        {/* لوگو */}
-        <div className="flex items-center gap-3 px-6 py-6 border-b border-slate-700/50">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
-            style={{ background: "linear-gradient(135deg, #f97316, #fb923c)" }}
-          >
-            <Shield size={20} className="text-white" />
-          </div>
-          <div>
-            <p className="text-white font-black text-base tracking-wide">
-              پنل مدیریت
-            </p>
-            <p className="text-slate-400 text-xs">راوی</p>
-          </div>
+        {/* لوگو — بک‌گراند سورمه‌ای */}
+        <div
+          className="flex items-center justify-center px-5 py-5 border-b border-slate-700/50"
+          style={{ background: "linear-gradient(135deg,#1a3a5c 0%,#0f2340 100%)" }}
+        >
+          <Link href="/admin/dashboard" className="flex items-center gap-3 group hover:opacity-85 transition-opacity">
+            <img
+              src="/logo.JPG"
+              alt="راوی"
+              className="rounded-xl object-cover shadow-lg flex-shrink-0"
+              style={{ width: 46, height: 46 }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+            <div>
+              <p className="text-white font-black text-base tracking-wide">پنل مدیریت</p>
+              <p className="text-[11px]" style={{ color: "#FF9A3C" }}>راوی</p>
+            </div>
+          </Link>
         </div>
 
         {/* کاربر */}
@@ -177,7 +182,7 @@ export default function AdminLayout({
         {/* لینک بازگشت + خروج */}
         <div className="px-4 pb-6 space-y-2 border-t border-slate-700/30 pt-4">
           <Link
-            href="/dashboard"
+            href="/dashboard?user=1"
             className="flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-400 hover:text-white hover:bg-slate-700/40 text-sm font-bold transition-all"
           >
             <Home size={18} />
@@ -194,7 +199,7 @@ export default function AdminLayout({
       </aside>
 
       {/* محتوا */}
-      <main className="md:mr-64 relative z-10 min-h-screen">{children}</main>
+      <main className="md:mr-64 relative z-10 min-h-screen overflow-y-auto">{children}</main>
 
       {/* ── نوار پایین موبایل ── */}
       <nav

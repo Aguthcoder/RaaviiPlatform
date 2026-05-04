@@ -11,6 +11,7 @@ import TestGate from "@/components/TestGate";
 import AIChatWidget from "@/components/AIChatWidget";
 import { Suspense } from "react";
 import GlobalPageLoader from "@/components/GlobalPageLoader";
+import DashboardAwarePadding from "@/components/DashboardAwarePadding";
 
 const vazirmatn = localFont({
   src: "./fonts/Vazirmatn-Regular.woff2",
@@ -31,7 +32,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fa" dir="rtl" className={vazirmatn.variable}>
-      <body className="font-sans antialiased" style={{ background: "#0a1628" }}>
+      <body className="font-sans antialiased" style={{ background: "#fff", minHeight: "100vh" }}>
         <AnimatedBackground />
         <AppProvider>
           {/* لودینگ گلوبال — روی همه صفحات و ناوبری‌ها */}
@@ -41,9 +42,9 @@ export default function RootLayout({
           <AuthGate>
             <TestGate>
               <TopHeader />
-              <div className="relative z-10 pt-16">
+              <DashboardAwarePadding>
                 <ProfileGuard>{children}</ProfileGuard>
-              </div>
+              </DashboardAwarePadding>
               <BottomNav />
               <AIChatWidget />
             </TestGate>

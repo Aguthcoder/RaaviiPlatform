@@ -10,11 +10,13 @@ import {
   LogOut,
   LayoutDashboard,
   Shield,
+  Home,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { isAdminPhone } from "@/lib/api";
 
 const USER_NAV = [
+  { name: "خانه", href: "/", icon: Home },
   { name: "داشبورد", href: "/dashboard", icon: LayoutDashboard },
   { name: "پروفایل", href: "/dashboard/profile", icon: User },
   { name: "بازی", href: "/dashboard/game", icon: Gamepad2 },
@@ -22,6 +24,7 @@ const USER_NAV = [
 ];
 
 const ADMIN_NAV = [
+  { name: "خانه", href: "/", icon: Home },
   { name: "پروفایل", href: "/dashboard/profile", icon: User },
   { name: "اعلان‌ها", href: "/dashboard/notifications", icon: Bell },
   { name: "رزرو", href: "/events", icon: Calendar },
@@ -34,7 +37,7 @@ export default function BottomNav() {
   const { state, logout } = useApp();
 
   const hiddenPaths = ["/login", "/test", "/(auth)", "/verify-mobile"];
-  if (hiddenPaths.some((p) => pathname.startsWith(p))) return null;
+  if (hiddenPaths.some((p) => pathname.startsWith(p)) || pathname.startsWith("/admin")) return null;
 
   if (state.isLoading) {
     return (

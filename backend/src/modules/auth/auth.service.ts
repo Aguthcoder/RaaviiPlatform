@@ -98,7 +98,15 @@ export class AuthService {
 
     let user = await this.userRepository.findOne({ where: { mobileNumber: cleanPhone } });
     if (!user) {
-      user = this.userRepository.create({ mobileNumber: cleanPhone, isVerified: true, role: 'user', name: name || '' });
+      // بررسی نام+فامیل تکراری
+      if (name && name.trim()) {
+        const nameTrimmed = name.trim().replace(/\s+/g, ' ');
+        const nameExists = await this.userRepository.findOne({ where: { name: nameTrimmed } });
+        if (nameExists) {
+          throw new BadRequestException('این نام و نام خانوادگی قبلاً ثبت شده است. لطفاً نام دیگری انتخاب کنید.');
+        }
+      }
+      user = this.userRepository.create({ mobileNumber: cleanPhone, isVerified: true, role: 'user', name: name ? name.trim() : '' });
       await this.userRepository.save(user);
     } else {
       user.isVerified = true;
@@ -185,4 +193,21 @@ export class AuthService {
   async validateUser(userId: string) {
     return this.userRepository.findOne({ where: { id: userId } });
   }
+  async checkPhoneExists(phone: string): Promise<boolean> {
+    const clean = phone.replace(/\D/g, '');
+    const user = await this.userRepository.findOne({ where: { mobileNumber: clean } });
+    return !!user;
+  }
+
+
+  // بررسی تکراری بودن نام+فامیل
+  async checkNameExists(name: string): Promise<boolean> {
+    if (!name || !name.trim()) return false;
+    const normalized = name.trim().replace(/\s+/g, ' ');
+    const user = await this.userRepository.findOne({ where: { name: normalized } });
+    return !!user;
+  }
+
+
+
 }
